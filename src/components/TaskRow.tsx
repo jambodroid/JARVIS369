@@ -1,14 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import type { Priority, Task } from "@/lib/tasks";
+import type { Task } from "@/lib/tasks";
+import { COLOR_DOT_CLASS, resolveColor } from "@/lib/colors";
 import { useRouter } from "next/navigation";
 
-const PRIORITY_CHIP: Record<Priority, string> = {
-  high: "bg-danger/15 text-danger",
-  med: "bg-warn/15 text-warn",
-  low: "bg-ok/15 text-ok",
-};
+function formatMeta(task: Task): string | null {
+  if (task.due_time) return task.due_time.slice(0, 5);
+  if (task.due_date) return task.due_date;
+  return null;
+}
 
 export default function TaskRow({ task, completed = false }: { task: Task; completed?: boolean }) {
   const router = useRouter();
@@ -24,6 +25,9 @@ export default function TaskRow({ task, completed = false }: { task: Task; compl
     router.refresh();
   }
 
+  const color = resolveColor(task.category, task.priority);
+  const meta = formatMeta(task);
+
   return (
     <li className="flex items-center gap-3 rounded-xl border border-border/60 bg-surface-2/60 px-3 py-2.5 transition-colors hover:bg-surface-2">
       <input
@@ -33,17 +37,13 @@ export default function TaskRow({ task, completed = false }: { task: Task; compl
         onChange={handleToggle}
         className="h-5 w-5 shrink-0 accent-accent"
       />
+      <span className={`h-2 w-2 shrink-0 rounded-full ${COLOR_DOT_CLASS[color]}`} />
       <div className="min-w-0 flex-1">
         <p className={`truncate text-sm ${completed ? "text-ink-3 line-through" : "text-ink-0"}`}>
           {task.title}
         </p>
-        <p className="text-xs text-ink-3">{task.due_date}</p>
+        {meta && <p className="text-xs text-ink-3">{meta}</p>}
       </div>
-      <span
-        className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${PRIORITY_CHIP[task.priority]}`}
-      >
-        {task.priority}
-      </span>
     </li>
   );
 }

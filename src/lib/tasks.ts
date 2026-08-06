@@ -1,13 +1,17 @@
 import { getSupabaseClient } from "@/lib/supabase";
+import type { Category } from "@/lib/colors";
 
 export type Priority = "low" | "med" | "high";
 
 export type Task = {
   id: string;
   title: string;
-  due_date: string; // YYYY-MM-DD
+  due_date: string | null; // YYYY-MM-DD, null = "this week, unscheduled"
+  due_time: string | null; // HH:MM:SS, null = no specific time
   priority: Priority;
+  category: Category;
   completed_at: string | null;
+  google_event_id: string | null;
   created_at: string;
 };
 
@@ -28,20 +32,10 @@ export function addDays(date: Date, days: number): Date {
 
 export async function getOpenTasks(): Promise<Task[]> {
   const supabase = getSupabaseClient();
-  const { data, error } = await supabase
-    .from("tasks")
-    .select("*")
-    .is("completed_at", null)
-    .order("due_date", { ascending: true });
+  const { data, error } = await supabase.from("tasks").select("*").is("completed_at", null);
 
   if (error) throw new Error(error.message);
-
-  const tasks = (data ?? []) as Task[];
-  tasks.sort((a, b) => {
-    if (a.due_date !== b.due_date) return a.due_date < b.due_date ? -1 : 1;
-    return PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority];
-  });
-  return tasks;
+  return (data ?? []) as Task[];
 }
 
 export async function getCompletedTasks(): Promise<Task[]> {
@@ -57,8 +51,32 @@ export async function getCompletedTasks(): Promise<Task[]> {
   return (data ?? []) as Task[];
 }
 
-// "Today" includes anything due today or overdue, so nothing silently slips.
-// "This Week" is the next 7 days after today.
+function byPriority(a: Task, b: Task): number {
+  return PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority];
+}
+
+function byTimeThenPriority(a: Task, b: Task): number {
+  if (a.due_time !== b.due_time) {
+    if (a.due_time === null) return 1;
+    if (b.due_time === null) return -1;
+    return a.due_time < b.due_time ? -1 : 1;
+  }
+  return byPriority(a, b);
+}
+
+function byDateThenPriority(a: Task, b: Task): number {
+  if (a.due_date !== b.due_date) {
+    if (a.due_date === null) return 1;
+    if (b.due_date === null) return -1;
+    return a.due_date < b.due_date ? -1 : 1;
+  }
+  return byPriority(a, b);
+}
+
+// "Today" includes anything due today or overdue, so nothing silently slips,
+// sorted by time-of-day then priority.
+// "This Week" is the next 7 days after today, plus any task with no due_date
+// at all (brain-dumped, no specific day), sorted by date then priority.
 export function splitTasksByWindow(tasks: Task[]): { today: Task[]; week: Task[] } {
   const todayKey = localDateKey(new Date());
   const weekEndKey = localDateKey(addDays(new Date(), 7));
@@ -67,12 +85,17 @@ export function splitTasksByWindow(tasks: Task[]): { today: Task[]; week: Task[]
   const week: Task[] = [];
 
   for (const task of tasks) {
-    if (task.due_date <= todayKey) {
+    if (task.due_date === null) {
+      week.push(task);
+    } else if (task.due_date <= todayKey) {
       today.push(task);
     } else if (task.due_date <= weekEndKey) {
       week.push(task);
     }
   }
+
+  today.sort(byTimeThenPriority);
+  week.sort(byDateThenPriority);
 
   return { today, week };
 }

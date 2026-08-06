@@ -3,9 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Task } from "@/lib/tasks";
+import type { CalendarEvent } from "@/lib/google";
 import TaskRow from "@/components/TaskRow";
 import AddTaskForm from "@/components/AddTaskForm";
 import Card from "@/components/Card";
+import WeekCalendar from "@/components/WeekCalendar";
+import ConnectGoogleCalendar from "@/components/ConnectGoogleCalendar";
 
 function Section({ title, tasks }: { title: string; tasks: Task[] }) {
   return (
@@ -56,10 +59,16 @@ export default function TaskBoard({
   today,
   week,
   completed,
+  googleConnected,
+  events,
+  googleError,
 }: {
   today: Task[];
   week: Task[];
   completed: Task[];
+  googleConnected: boolean;
+  events: CalendarEvent[];
+  googleError?: string;
 }) {
   const router = useRouter();
 
@@ -85,6 +94,11 @@ export default function TaskBoard({
 
       <main className="mx-auto flex max-w-lg flex-col gap-4 px-4 py-5 sm:px-6">
         <AddTaskForm />
+        {googleConnected ? (
+          <WeekCalendar events={events} />
+        ) : (
+          <ConnectGoogleCalendar error={googleError} />
+        )}
         <Section title="Today" tasks={today} />
         <Section title="This Week" tasks={week} />
         <CompletedSection tasks={completed} />
