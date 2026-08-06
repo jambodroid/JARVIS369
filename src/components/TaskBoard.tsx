@@ -66,8 +66,6 @@ export default function TaskBoard({
   googleConnected,
   events,
   googleError,
-  truelayerConnected,
-  truelayerError,
   netWorthAccounts,
   netWorthSnapshots,
   tradingAccount,
@@ -78,8 +76,6 @@ export default function TaskBoard({
   googleConnected: boolean;
   events: CalendarEvent[];
   googleError?: string;
-  truelayerConnected: boolean;
-  truelayerError?: string;
   netWorthAccounts: NetWorthAccount[];
   netWorthSnapshots: NetWorthSnapshot[];
   tradingAccount: NetWorthAccount | null;
@@ -117,12 +113,7 @@ export default function TaskBoard({
         ) : (
           <ConnectGoogleCalendar error={googleError} />
         )}
-        <NetWorthCard
-          accounts={netWorthAccounts}
-          snapshots={netWorthSnapshots}
-          truelayerConnected={truelayerConnected}
-          truelayerError={truelayerError}
-        />
+        <NetWorthCard accounts={netWorthAccounts} snapshots={netWorthSnapshots} />
         <TradingCard account={tradingAccount} snapshots={netWorthSnapshots} />
         <Section title="Today" tasks={today} />
         <Section title="This Week" tasks={week} />

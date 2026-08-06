@@ -77,12 +77,18 @@ const TOOLS: Tool[] = [
   {
     name: "update_account_balance",
     description:
-      "Update the balance of a manually-tracked net worth account (currently only the AMP Trading account -- HSBC accounts sync automatically and can't be set this way). Use when the user tells you their new balance, e.g. 'my trading balance is now 12,400'.",
+      "Update the balance of a manually-tracked net worth account (AMP Trading, HSBC Current Account, HSBC Credit Card). Use when the user tells you a new balance, e.g. 'my trading balance is now 12,400' or 'my HSBC current account is 850'.",
     input_schema: {
       type: "object",
       properties: {
-        account_name: { type: "string", description: "Exact account name, e.g. 'AMP Trading'." },
-        balance: { type: "number", description: "The new balance." },
+        account_name: {
+          type: "string",
+          description: "Exact account name: 'AMP Trading', 'HSBC Current Account', or 'HSBC Credit Card'.",
+        },
+        balance: {
+          type: "number",
+          description: "The new balance. For HSBC Credit Card, use the positive amount owed (e.g. 240, not -240).",
+        },
       },
       required: ["account_name", "balance"],
     },

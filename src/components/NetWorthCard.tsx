@@ -1,22 +1,95 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import type { NetWorthAccount, NetWorthSnapshot } from "@/lib/netWorth";
 import { computeTotal } from "@/lib/netWorth";
 import Card from "@/components/Card";
-import TrendChart from "@/components/TrendChart";
+import PeriodTrendChart from "@/components/PeriodTrendChart";
 
 function formatMoney(n: number, currency = "GBP") {
   return new Intl.NumberFormat("en-GB", { style: "currency", currency, maximumFractionDigits: 0 }).format(n);
 }
 
+function AccountRow({ account }: { account: NetWorthAccount }) {
+  const router = useRouter();
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(String(account.balance));
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleSave() {
+    const balance = Number(value);
+    if (!Number.isFinite(balance)) return;
+    setSubmitting(true);
+    await fetch(`/api/networth/accounts/${account.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ balance }),
+    });
+    setSubmitting(false);
+    setEditing(false);
+    router.refresh();
+  }
+
+  if (editing) {
+    return (
+      <div className="flex items-center justify-between gap-2 text-sm">
+        <span className="text-ink-1">{account.name}</span>
+        <div className="flex items-center gap-1">
+          <input
+            type="number"
+            step="0.01"
+            inputMode="decimal"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            autoFocus
+            className="w-24 rounded-lg border border-border bg-surface-2 px-2 py-1 text-right font-mono text-sm text-ink-0 outline-none focus:border-accent"
+          />
+          <button
+            onClick={handleSave}
+            disabled={submitting}
+            className="rounded-lg bg-accent px-2 py-1 text-xs font-medium text-background disabled:opacity-50"
+          >
+            Save
+          </button>
+          <button
+            onClick={() => {
+              setEditing(false);
+              setValue(String(account.balance));
+            }}
+            className="text-xs text-ink-3 hover:text-ink-1"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-between text-sm">
+      <span className="text-ink-1">{account.name}</span>
+      <div className="flex items-center gap-2">
+        <span className={`font-mono ${account.kind === "liability" ? "text-danger" : "text-ink-0"}`}>
+          {account.kind === "liability" ? "-" : ""}
+          {formatMoney(account.balance, account.currency)}
+        </span>
+        {account.source === "manual" && (
+          <button onClick={() => setEditing(true)} className="text-xs text-ink-3 hover:text-accent">
+            Edit
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function NetWorthCard({
   accounts,
   snapshots,
-  truelayerConnected,
-  truelayerError,
 }: {
   accounts: NetWorthAccount[];
   snapshots: NetWorthSnapshot[];
-  truelayerConnected: boolean;
-  truelayerError?: string;
 }) {
   const total = computeTotal(accounts);
   const trend = snapshots.map((s) => ({ date: s.snapshot_date, value: s.total }));
@@ -25,31 +98,8 @@ export default function NetWorthCard({
     <Card title="Net Worth">
       <div className="flex flex-col gap-2">
         {accounts.map((a) => (
-          <div key={a.id} className="flex items-center justify-between text-sm">
-            <span className="text-ink-1">{a.name}</span>
-            <span className={`font-mono ${a.kind === "liability" ? "text-danger" : "text-ink-0"}`}>
-              {a.kind === "liability" ? "-" : ""}
-              {formatMoney(a.balance, a.currency)}
-            </span>
-          </div>
+          <AccountRow key={a.id} account={a} />
         ))}
-
-        {!truelayerConnected && (
-          <div className="rounded-lg border border-border bg-surface-2 p-3">
-            <p className="mb-2 text-sm text-ink-2">
-              Connect HSBC to add your current account and credit card.
-            </p>
-            {truelayerError && (
-              <p className="mb-2 text-xs text-danger">Couldn&apos;t connect: {truelayerError}</p>
-            )}
-            <a
-              href="/api/truelayer/connect"
-              className="inline-block rounded-lg bg-accent px-4 py-2 text-sm font-medium text-background"
-            >
-              Connect HSBC
-            </a>
-          </div>
-        )}
 
         <div className="mt-1 flex items-center justify-between border-t border-border pt-2 text-sm font-semibold">
           <span className="text-ink-0">Total</span>
@@ -58,7 +108,7 @@ export default function NetWorthCard({
       </div>
 
       <div className="mt-4">
-        <TrendChart data={trend} formatValue={(n) => formatMoney(n, "GBP")} />
+        <PeriodTrendChart data={trend} formatValue={(n) => formatMoney(n, "GBP")} />
       </div>
     </Card>
   );

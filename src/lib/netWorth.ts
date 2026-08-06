@@ -27,15 +27,17 @@ export async function getNetWorthAccounts(): Promise<NetWorthAccount[]> {
   return (data ?? []) as NetWorthAccount[];
 }
 
-export async function getNetWorthSnapshots(days = 60): Promise<NetWorthSnapshot[]> {
+export async function getNetWorthSnapshots(days = 366): Promise<NetWorthSnapshot[]> {
   const supabase = getSupabaseClient();
+  // Order descending to grab the most recent `days` rows, then reverse to
+  // ascending for charting -- otherwise .limit() would keep the oldest rows.
   const { data, error } = await supabase
     .from("net_worth_snapshots")
     .select("snapshot_date, total, breakdown")
-    .order("snapshot_date", { ascending: true })
+    .order("snapshot_date", { ascending: false })
     .limit(days);
   if (error) throw new Error(error.message);
-  return (data ?? []) as NetWorthSnapshot[];
+  return ((data ?? []) as NetWorthSnapshot[]).reverse();
 }
 
 export function computeTotal(accounts: NetWorthAccount[]): number {
