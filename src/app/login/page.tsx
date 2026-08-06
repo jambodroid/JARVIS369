@@ -33,9 +33,12 @@ export default function LoginPage() {
     <main className="flex min-h-screen items-center justify-center bg-background px-4">
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-sm rounded-2xl border border-border bg-surface p-6"
+        className="w-full max-w-sm rounded-2xl border border-accent/30 bg-surface p-6 shadow-hud"
       >
-        <h1 className="mb-4 text-xs font-semibold uppercase tracking-widest text-ink-2">Tasks</h1>
+        <h1 className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-ink-2">
+          <span className="h-1.5 w-1.5 rounded-full bg-accent shadow-[0_0_8px_2px_var(--accent)]" />
+          Jarvis
+        </h1>
         <input
           type="password"
           autoFocus

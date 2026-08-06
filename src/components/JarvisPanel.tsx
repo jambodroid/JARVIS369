@@ -4,10 +4,11 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { MessageParam } from "@anthropic-ai/sdk/resources/messages";
 import JarvisOrb from "@/components/JarvisOrb";
+import Card from "@/components/Card";
 
 type DisplayMessage = { role: "user" | "assistant"; text: string };
 
-export default function ChatPanel({ onClose }: { onClose: () => void }) {
+export default function JarvisPanel() {
   const router = useRouter();
   const [displayMessages, setDisplayMessages] = useState<DisplayMessage[]>([]);
   const apiMessagesRef = useRef<MessageParam[]>([]);
@@ -118,41 +119,31 @@ export default function ChatPanel({ onClose }: { onClose: () => void }) {
   const busy = sending || transcribing;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-background">
-      <header className="flex items-center justify-between border-b border-border px-4 py-3">
-        <h2 className="text-sm font-semibold uppercase tracking-widest text-ink-0">Assistant</h2>
-        <button onClick={onClose} className="text-sm text-ink-3 hover:text-ink-1">
-          Close
-        </button>
-      </header>
-
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4">
-        {displayMessages.length === 0 && !recording && (
-          <p className="text-sm text-ink-3">
-            Ask things like &quot;what&apos;s on today&quot;, &quot;add gym at 6pm&quot;, or hold the mic and talk.
-          </p>
-        )}
-        <div className="flex flex-col gap-3">
-          {displayMessages.map((m, i) => (
-            <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-              <div
-                className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${
-                  m.role === "user" ? "bg-accent text-background" : "bg-surface text-ink-0"
-                }`}
-              >
-                {m.text}
+    <Card title="Jarvis">
+      {displayMessages.length > 0 && (
+        <div ref={scrollRef} className="mb-3 max-h-72 overflow-y-auto">
+          <div className="flex flex-col gap-3">
+            {displayMessages.map((m, i) => (
+              <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                <div
+                  className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${
+                    m.role === "user" ? "bg-accent text-background" : "bg-surface-2 text-ink-0"
+                  }`}
+                >
+                  {m.text}
+                </div>
               </div>
-            </div>
-          ))}
-          {sending && <p className="text-xs text-ink-3">Thinking…</p>}
-          {transcribing && <p className="text-xs text-ink-3">Transcribing…</p>}
+            ))}
+            {sending && <p className="text-xs text-ink-3">Thinking…</p>}
+            {transcribing && <p className="text-xs text-ink-3">Transcribing…</p>}
+          </div>
         </div>
-      </div>
+      )}
 
       {recording && <JarvisOrb stream={micStream} />}
-      {micError && <p className="px-4 pb-2 text-xs text-danger">{micError}</p>}
+      {micError && <p className="mb-2 text-xs text-danger">{micError}</p>}
 
-      <form onSubmit={handleSubmit} className="flex items-center gap-2 border-t border-border p-4">
+      <form onSubmit={handleSubmit} className="flex items-center gap-2">
         <button
           type="button"
           onClick={recording ? stopRecording : startRecording}
@@ -168,7 +159,7 @@ export default function ChatPanel({ onClose }: { onClose: () => void }) {
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask or tell me something..."
+          placeholder="Ask or tell Jarvis something..."
           disabled={recording}
           className="flex-1 rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-ink-0 placeholder-ink-3 outline-none focus:border-accent disabled:opacity-50"
         />
@@ -180,6 +171,6 @@ export default function ChatPanel({ onClose }: { onClose: () => void }) {
           Send
         </button>
       </form>
-    </div>
+    </Card>
   );
 }

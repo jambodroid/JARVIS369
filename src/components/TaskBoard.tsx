@@ -9,7 +9,7 @@ import AddTaskForm from "@/components/AddTaskForm";
 import Card from "@/components/Card";
 import WeekCalendar from "@/components/WeekCalendar";
 import ConnectGoogleCalendar from "@/components/ConnectGoogleCalendar";
-import ChatPanel from "@/components/ChatPanel";
+import JarvisPanel from "@/components/JarvisPanel";
 
 function Section({ title, tasks }: { title: string; tasks: Task[] }) {
   return (
@@ -72,7 +72,6 @@ export default function TaskBoard({
   googleError?: string;
 }) {
   const router = useRouter();
-  const [chatOpen, setChatOpen] = useState(false);
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -82,29 +81,23 @@ export default function TaskBoard({
 
   return (
     <div className="min-h-screen bg-background">
-      {chatOpen && <ChatPanel onClose={() => setChatOpen(false)} />}
-
-      <header className="border-b border-border px-4 py-3 sm:px-6">
+      <header className="border-b border-accent/20 px-4 py-3 sm:px-6">
         <div className="mx-auto flex max-w-lg items-center justify-between">
-          <h1 className="text-sm font-semibold uppercase tracking-widest text-ink-0">Tasks</h1>
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => setChatOpen(true)}
-              className="text-xs font-medium text-accent transition-colors hover:brightness-110"
-            >
-              Assistant
-            </button>
-            <button
-              onClick={handleLogout}
-              className="text-xs font-medium text-ink-3 transition-colors hover:text-ink-1"
-            >
-              Log out
-            </button>
-          </div>
+          <h1 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-widest text-ink-0">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent shadow-[0_0_8px_2px_var(--accent)]" />
+            Tasks
+          </h1>
+          <button
+            onClick={handleLogout}
+            className="text-xs font-medium text-ink-3 transition-colors hover:text-ink-1"
+          >
+            Log out
+          </button>
         </div>
       </header>
 
       <main className="mx-auto flex max-w-lg flex-col gap-4 px-4 py-5 sm:px-6">
+        <JarvisPanel />
         <AddTaskForm />
         {googleConnected ? (
           <WeekCalendar events={events} />

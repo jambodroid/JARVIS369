@@ -42,7 +42,7 @@ export default function TaskRow({ task, completed = false }: { task: Task; compl
         <p className={`truncate text-sm ${completed ? "text-ink-3 line-through" : "text-ink-0"}`}>
           {task.title}
         </p>
-        {meta && <p className="text-xs text-ink-3">{meta}</p>}
+        {meta && <p className="font-mono text-xs text-ink-3">{meta}</p>}
       </div>
     </li>
   );

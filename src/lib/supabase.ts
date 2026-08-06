@@ -12,3 +12,18 @@ export function getSupabaseClient() {
     auth: { persistSession: false },
   });
 }
+
+// Supabase's gateway occasionally issues a request-scoped token with a
+// clock-skewed "iat", producing a transient "JWT issued at future" error
+// that clears itself within a second or two. Retry once rather than
+// surfacing that as a broken page.
+export async function withTransientRetry<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "";
+    if (!message.includes("JWT issued at future")) throw err;
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    return fn();
+  }
+}

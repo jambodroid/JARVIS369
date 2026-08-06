@@ -42,7 +42,7 @@ export default function WeekCalendar({ events }: { events: CalendarEvent[] }) {
                       <span
                         className={`h-1.5 w-1.5 shrink-0 rounded-full ${GOOGLE_COLOR_DOT[e.colorId ?? ""] ?? "bg-ink-3"}`}
                       />
-                      <span className="shrink-0 text-xs text-ink-3">
+                      <span className="shrink-0 font-mono text-xs text-ink-3">
                         {e.allDay ? "All day" : formatTime(e.start)}
                       </span>
                       <span className="truncate">{e.title}</span>

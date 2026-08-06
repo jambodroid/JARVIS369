@@ -135,18 +135,36 @@ async function refreshAccessToken(refreshToken: string): Promise<{ accessToken: 
   return { accessToken: json.access_token, expiresAt };
 }
 
-export async function getValidAccessToken(): Promise<string> {
+export async function getValidAccessToken(forceRefresh = false): Promise<string> {
   const stored = await getStoredAuth();
   if (!stored) throw new GoogleNotConnectedError();
 
   const expiresAt = stored.access_token_expires_at ? new Date(stored.access_token_expires_at).getTime() : 0;
   // Refresh a minute early to avoid edge-of-expiry failures.
-  if (stored.access_token && expiresAt > Date.now() + 60_000) {
+  if (!forceRefresh && stored.access_token && expiresAt > Date.now() + 60_000) {
     return stored.access_token;
   }
 
   const { accessToken } = await refreshAccessToken(stored.refresh_token);
   return accessToken;
+}
+
+// Our stored expiry can lie (Google can invalidate a token early). Retry
+// once with a forced refresh if the API says the token is bad, rather than
+// trusting the cached expiry blindly.
+async function fetchGoogleCalendar(url: string, init: RequestInit = {}): Promise<Response> {
+  const withAuth = async (token: string) =>
+    fetch(url, { ...init, headers: { ...init.headers, Authorization: `Bearer ${token}` } });
+
+  let accessToken = await getValidAccessToken();
+  let res = await withAuth(accessToken);
+
+  if (res.status === 401) {
+    accessToken = await getValidAccessToken(true);
+    res = await withAuth(accessToken);
+  }
+
+  return res;
 }
 
 export async function isGoogleConnected(): Promise<boolean> {
@@ -164,8 +182,6 @@ export type CalendarEvent = {
 };
 
 export async function listWeekEvents(): Promise<CalendarEvent[]> {
-  const accessToken = await getValidAccessToken();
-
   const timeMin = new Date(`${localDateKey(new Date())}T00:00:00`).toISOString();
   const timeMax = new Date(`${localDateKey(addDays(new Date(), 7))}T00:00:00`).toISOString();
 
@@ -177,9 +193,7 @@ export async function listWeekEvents(): Promise<CalendarEvent[]> {
     maxResults: "250",
   });
 
-  const res = await fetch(`${CALENDAR_API}?${params.toString()}`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
+  const res = await fetchGoogleCalendar(`${CALENDAR_API}?${params.toString()}`);
 
   if (!res.ok) {
     throw new Error(`Google Calendar list failed: ${await res.text()}`);
@@ -215,7 +229,6 @@ export async function upsertTaskEvent(
     throw new Error("upsertTaskEvent requires both due_date and due_time");
   }
 
-  const accessToken = await getValidAccessToken();
   const colorId = GOOGLE_COLOR_ID[resolveColor(task.category, task.priority)];
   const startDateTime = `${task.due_date}T${task.due_time}`;
   const endDateTime = addMinutes(startDateTime, 30);
@@ -230,12 +243,9 @@ export async function upsertTaskEvent(
   const url = task.google_event_id ? `${CALENDAR_API}/${task.google_event_id}` : CALENDAR_API;
   const method = task.google_event_id ? "PATCH" : "POST";
 
-  const res = await fetch(url, {
+  const res = await fetchGoogleCalendar(url, {
     method,
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
 

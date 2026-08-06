@@ -1,4 +1,4 @@
-import { getSupabaseClient } from "@/lib/supabase";
+import { getSupabaseClient, withTransientRetry } from "@/lib/supabase";
 import type { Category } from "@/lib/colors";
 
 export type Priority = "low" | "med" | "high";
@@ -31,24 +31,28 @@ export function addDays(date: Date, days: number): Date {
 }
 
 export async function getOpenTasks(): Promise<Task[]> {
-  const supabase = getSupabaseClient();
-  const { data, error } = await supabase.from("tasks").select("*").is("completed_at", null);
+  return withTransientRetry(async () => {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase.from("tasks").select("*").is("completed_at", null);
 
-  if (error) throw new Error(error.message);
-  return (data ?? []) as Task[];
+    if (error) throw new Error(error.message);
+    return (data ?? []) as Task[];
+  });
 }
 
 export async function getCompletedTasks(): Promise<Task[]> {
-  const supabase = getSupabaseClient();
-  const { data, error } = await supabase
-    .from("tasks")
-    .select("*")
-    .not("completed_at", "is", null)
-    .order("completed_at", { ascending: false })
-    .limit(50);
+  return withTransientRetry(async () => {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from("tasks")
+      .select("*")
+      .not("completed_at", "is", null)
+      .order("completed_at", { ascending: false })
+      .limit(50);
 
-  if (error) throw new Error(error.message);
-  return (data ?? []) as Task[];
+    if (error) throw new Error(error.message);
+    return (data ?? []) as Task[];
+  });
 }
 
 function byPriority(a: Task, b: Task): number {
