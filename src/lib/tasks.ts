@@ -73,6 +73,66 @@ function byDateThenPriority(a: Task, b: Task): number {
   return byPriority(a, b);
 }
 
+export async function getTaskById(id: string): Promise<Task | null> {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase.from("tasks").select("*").eq("id", id).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data as Task | null;
+}
+
+export async function insertTaskRow(input: {
+  title: string;
+  due_date: string | null;
+  due_time: string | null;
+  priority: Priority;
+  category: Category;
+}): Promise<Task> {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase.from("tasks").insert(input).select().single();
+  if (error) throw new Error(error.message);
+  return data as Task;
+}
+
+export async function setTaskGoogleEventId(id: string, googleEventId: string): Promise<Task> {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("tasks")
+    .update({ google_event_id: googleEventId })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw new Error(error.message);
+  return data as Task;
+}
+
+export async function setTaskCompleted(id: string, completed: boolean): Promise<Task> {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("tasks")
+    .update({ completed_at: completed ? new Date().toISOString() : null })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw new Error(error.message);
+  return data as Task;
+}
+
+export async function updateTaskDateTime(
+  id: string,
+  due_date: string | null,
+  due_time: string | null,
+): Promise<Task> {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("tasks")
+    .update({ due_date, due_time })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw new Error(error.message);
+  return data as Task;
+}
+
 // "Today" includes anything due today or overdue, so nothing silently slips,
 // sorted by time-of-day then priority.
 // "This Week" is the next 7 days after today, plus any task with no due_date

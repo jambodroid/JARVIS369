@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseClient } from "@/lib/supabase";
 import { CATEGORIES } from "@/lib/colors";
-import { upsertTaskEvent } from "@/lib/google";
-import type { Task } from "@/lib/tasks";
+import { createTask } from "@/lib/taskActions";
 
 const VALID_PRIORITIES = new Set<string>(["low", "med", "high"]);
 const VALID_CATEGORIES = new Set<string>(CATEGORIES);
@@ -30,34 +28,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const supabase = getSupabaseClient();
-  const { data, error } = await supabase
-    .from("tasks")
-    .insert({ title, due_date, due_time, priority, category })
-    .select()
-    .single();
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  let task = data as Task;
-
-  if (task.due_date && task.due_time) {
-    try {
-      const eventId = await upsertTaskEvent(task, body?.time_zone || "UTC");
-      const { data: updated, error: updateError } = await supabase
-        .from("tasks")
-        .update({ google_event_id: eventId })
-        .eq("id", task.id)
-        .select()
-        .single();
-      if (!updateError && updated) task = updated as Task;
-    } catch (calendarError) {
-      // Task is already saved; calendar sync failing shouldn't lose the task.
-      console.error("Failed to sync task to Google Calendar", calendarError);
-    }
-  }
+  const task = await createTask(
+    {
+      title,
+      due_date,
+      due_time,
+      priority: priority as "low" | "med" | "high",
+      category: category as (typeof CATEGORIES)[number],
+    },
+    body?.time_zone || "UTC",
+  );
 
   return NextResponse.json(task, { status: 201 });
 }
