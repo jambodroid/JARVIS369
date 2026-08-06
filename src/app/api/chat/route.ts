@@ -5,6 +5,7 @@ import { getCompletedTasks, getOpenTasks, getTaskById, splitTasksByWindow, type 
 import { completeTask, createTask, rescheduleTask } from "@/lib/taskActions";
 import { isGoogleConnected, listWeekEvents } from "@/lib/google";
 import { CATEGORIES } from "@/lib/colors";
+import { computeTotal, getAccountByName, getNetWorthAccounts, updateAccountBalance } from "@/lib/netWorth";
 
 const MODEL = "claude-opus-5";
 const MAX_ITERATIONS = 6;
@@ -67,6 +68,25 @@ const TOOLS: Tool[] = [
       required: ["task_id"],
     },
   },
+  {
+    name: "list_net_worth",
+    description:
+      "List every tracked net worth account (HSBC current account, HSBC credit card, AMP trading, etc.) with its balance, and the total net worth. Call this to answer questions about balances or net worth.",
+    input_schema: { type: "object", properties: {}, required: [] },
+  },
+  {
+    name: "update_account_balance",
+    description:
+      "Update the balance of a manually-tracked net worth account (currently only the AMP Trading account -- HSBC accounts sync automatically and can't be set this way). Use when the user tells you their new balance, e.g. 'my trading balance is now 12,400'.",
+    input_schema: {
+      type: "object",
+      properties: {
+        account_name: { type: "string", description: "Exact account name, e.g. 'AMP Trading'." },
+        balance: { type: "number", description: "The new balance." },
+      },
+      required: ["account_name", "balance"],
+    },
+  },
 ];
 
 function summarizeTask(task: Task) {
@@ -96,7 +116,7 @@ Use the tools to look up or change the user's tasks and calendar before answerin
 Keep replies short and conversational, like a text message -- this is a small chat widget on a phone screen.`;
 }
 
-const MUTATING_TOOLS = new Set(["add_task", "complete_task", "reschedule_task"]);
+const MUTATING_TOOLS = new Set(["add_task", "complete_task", "reschedule_task", "update_account_balance"]);
 
 async function executeTool(name: string, input: Record<string, unknown>, timeZone: string): Promise<unknown> {
   switch (name) {
@@ -150,6 +170,27 @@ async function executeTool(name: string, input: Record<string, unknown>, timeZon
       const due_time = input.due_time !== undefined ? ((input.due_time as string) || null) : current.due_time;
       const task = await rescheduleTask(taskId, due_date, due_time, timeZone);
       return { task: summarizeTask(task) };
+    }
+    case "list_net_worth": {
+      const accounts = await getNetWorthAccounts();
+      return {
+        accounts: accounts.map((a) => ({ name: a.name, kind: a.kind, source: a.source, balance: a.balance })),
+        total: computeTotal(accounts),
+      };
+    }
+    case "update_account_balance": {
+      const accountName = String(input.account_name ?? "");
+      const balance = Number(input.balance);
+      if (!accountName || !Number.isFinite(balance)) {
+        return { error: "account_name and a numeric balance are required" };
+      }
+      const existing = await getAccountByName(accountName);
+      if (!existing) return { error: `No account found named "${accountName}"` };
+      if (existing.source !== "manual") {
+        return { error: `"${accountName}" syncs automatically and can't be updated manually` };
+      }
+      const account = await updateAccountBalance(existing.id, balance);
+      return { account: { name: account.name, balance: account.balance } };
     }
     default:
       return { error: `Unknown tool ${name}` };

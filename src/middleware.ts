@@ -6,7 +6,9 @@ const PUBLIC_PATHS = new Set(["/login", "/api/auth/login"]);
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (PUBLIC_PATHS.has(pathname)) {
+  // Cron routes carry no session cookie (Vercel Cron invokes them directly) --
+  // they authenticate themselves via a CRON_SECRET bearer token instead.
+  if (PUBLIC_PATHS.has(pathname) || pathname.startsWith("/api/cron/")) {
     return NextResponse.next();
   }
 

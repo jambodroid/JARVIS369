@@ -4,12 +4,15 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Task } from "@/lib/tasks";
 import type { CalendarEvent } from "@/lib/google";
+import type { NetWorthAccount, NetWorthSnapshot } from "@/lib/netWorth";
 import TaskRow from "@/components/TaskRow";
 import AddTaskForm from "@/components/AddTaskForm";
 import Card from "@/components/Card";
 import WeekCalendar from "@/components/WeekCalendar";
 import ConnectGoogleCalendar from "@/components/ConnectGoogleCalendar";
 import JarvisPanel from "@/components/JarvisPanel";
+import NetWorthCard from "@/components/NetWorthCard";
+import TradingCard from "@/components/TradingCard";
 
 function Section({ title, tasks }: { title: string; tasks: Task[] }) {
   return (
@@ -63,6 +66,11 @@ export default function TaskBoard({
   googleConnected,
   events,
   googleError,
+  truelayerConnected,
+  truelayerError,
+  netWorthAccounts,
+  netWorthSnapshots,
+  tradingAccount,
 }: {
   today: Task[];
   week: Task[];
@@ -70,6 +78,11 @@ export default function TaskBoard({
   googleConnected: boolean;
   events: CalendarEvent[];
   googleError?: string;
+  truelayerConnected: boolean;
+  truelayerError?: string;
+  netWorthAccounts: NetWorthAccount[];
+  netWorthSnapshots: NetWorthSnapshot[];
+  tradingAccount: NetWorthAccount | null;
 }) {
   const router = useRouter();
 
@@ -104,6 +117,13 @@ export default function TaskBoard({
         ) : (
           <ConnectGoogleCalendar error={googleError} />
         )}
+        <NetWorthCard
+          accounts={netWorthAccounts}
+          snapshots={netWorthSnapshots}
+          truelayerConnected={truelayerConnected}
+          truelayerError={truelayerError}
+        />
+        <TradingCard account={tradingAccount} snapshots={netWorthSnapshots} />
         <Section title="Today" tasks={today} />
         <Section title="This Week" tasks={week} />
         <CompletedSection tasks={completed} />
