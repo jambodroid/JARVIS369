@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { Task } from "@/lib/tasks";
 import type { CalendarEvent } from "@/lib/google";
 import type { NetWorthAccount, NetWorthSnapshot } from "@/lib/netWorth";
+import type { RecurringPayment } from "@/lib/recurringPayments";
 import TaskRow from "@/components/TaskRow";
 import AddTaskForm from "@/components/AddTaskForm";
 import Card from "@/components/Card";
@@ -13,6 +14,7 @@ import ConnectGoogleCalendar from "@/components/ConnectGoogleCalendar";
 import JarvisPanel from "@/components/JarvisPanel";
 import NetWorthCard from "@/components/NetWorthCard";
 import TradingCard from "@/components/TradingCard";
+import RecurringPaymentsCard from "@/components/RecurringPaymentsCard";
 
 function Section({ title, tasks }: { title: string; tasks: Task[] }) {
   return (
@@ -69,6 +71,7 @@ export default function TaskBoard({
   netWorthAccounts,
   netWorthSnapshots,
   tradingAccount,
+  recurringPayments,
 }: {
   today: Task[];
   week: Task[];
@@ -79,6 +82,7 @@ export default function TaskBoard({
   netWorthAccounts: NetWorthAccount[];
   netWorthSnapshots: NetWorthSnapshot[];
   tradingAccount: NetWorthAccount | null;
+  recurringPayments: RecurringPayment[];
 }) {
   const router = useRouter();
 
@@ -115,6 +119,7 @@ export default function TaskBoard({
         )}
         <NetWorthCard accounts={netWorthAccounts} snapshots={netWorthSnapshots} />
         <TradingCard account={tradingAccount} snapshots={netWorthSnapshots} />
+        <RecurringPaymentsCard payments={recurringPayments} />
         <Section title="Today" tasks={today} />
         <Section title="This Week" tasks={week} />
         <CompletedSection tasks={completed} />

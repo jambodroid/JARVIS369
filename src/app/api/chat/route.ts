@@ -6,6 +6,12 @@ import { completeTask, createTask, rescheduleTask } from "@/lib/taskActions";
 import { isGoogleConnected, listWeekEvents } from "@/lib/google";
 import { CATEGORIES } from "@/lib/colors";
 import { computeTotal, getAccountByName, getNetWorthAccounts, updateAccountBalance } from "@/lib/netWorth";
+import {
+  createRecurringPayment,
+  deleteRecurringPaymentByName,
+  getRecurringPayments,
+  isDueThisWeek,
+} from "@/lib/recurringPayments";
 
 const MODEL = "claude-opus-5";
 const MAX_ITERATIONS = 6;
@@ -93,6 +99,39 @@ const TOOLS: Tool[] = [
       required: ["account_name", "balance"],
     },
   },
+  {
+    name: "list_recurring_payments",
+    description:
+      "List every tracked recurring direct debit/subscription, which are due within the next 7 days, and the total monthly cost. Call this to answer questions about upcoming bills or recurring spending.",
+    input_schema: { type: "object", properties: {}, required: [] },
+  },
+  {
+    name: "add_recurring_payment",
+    description: "Add a new recurring direct debit or subscription to track.",
+    input_schema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Payment name, e.g. 'Netflix'." },
+        amount: { type: "number", description: "Amount taken each month." },
+        day_of_month: { type: "number", description: "Day of the month it's collected, 1-31." },
+        account: {
+          type: "string",
+          enum: ["HSBC Current Account", "HSBC Credit Card"],
+          description: "Which account it's taken from. Defaults to HSBC Current Account if unsure.",
+        },
+      },
+      required: ["name", "amount", "day_of_month"],
+    },
+  },
+  {
+    name: "delete_recurring_payment",
+    description: "Stop tracking a recurring payment, e.g. because it was cancelled.",
+    input_schema: {
+      type: "object",
+      properties: { name: { type: "string", description: "Exact payment name, from list_recurring_payments." } },
+      required: ["name"],
+    },
+  },
 ];
 
 function summarizeTask(task: Task) {
@@ -122,7 +161,14 @@ Use the tools to look up or change the user's tasks and calendar before answerin
 Keep replies short and conversational, like a text message -- this is a small chat widget on a phone screen.`;
 }
 
-const MUTATING_TOOLS = new Set(["add_task", "complete_task", "reschedule_task", "update_account_balance"]);
+const MUTATING_TOOLS = new Set([
+  "add_task",
+  "complete_task",
+  "reschedule_task",
+  "update_account_balance",
+  "add_recurring_payment",
+  "delete_recurring_payment",
+]);
 
 async function executeTool(name: string, input: Record<string, unknown>, timeZone: string): Promise<unknown> {
   switch (name) {
@@ -197,6 +243,36 @@ async function executeTool(name: string, input: Record<string, unknown>, timeZon
       }
       const account = await updateAccountBalance(existing.id, balance);
       return { account: { name: account.name, balance: account.balance } };
+    }
+    case "list_recurring_payments": {
+      const payments = await getRecurringPayments();
+      return {
+        payments: payments.map((p) => ({
+          name: p.name,
+          amount: p.amount,
+          day_of_month: p.day_of_month,
+          account: p.account,
+          due_this_week: isDueThisWeek(p.day_of_month),
+        })),
+        monthly_total: payments.reduce((sum, p) => sum + p.amount, 0),
+      };
+    }
+    case "add_recurring_payment": {
+      const name = String(input.name ?? "").trim();
+      const amount = Number(input.amount);
+      const dayOfMonth = Number(input.day_of_month);
+      const account = (input.account as string | undefined) || "HSBC Current Account";
+      if (!name || !Number.isFinite(amount) || !Number.isInteger(dayOfMonth) || dayOfMonth < 1 || dayOfMonth > 31) {
+        return { error: "name, a numeric amount, and day_of_month (1-31) are required" };
+      }
+      const payment = await createRecurringPayment({ name, amount, day_of_month: dayOfMonth, account });
+      return { payment };
+    }
+    case "delete_recurring_payment": {
+      const name = String(input.name ?? "").trim();
+      if (!name) return { error: "name is required" };
+      await deleteRecurringPaymentByName(name);
+      return { ok: true };
     }
     default:
       return { error: `Unknown tool ${name}` };
