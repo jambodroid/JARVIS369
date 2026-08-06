@@ -44,6 +44,19 @@ export async function getOpenTasks(): Promise<Task[]> {
   return tasks;
 }
 
+export async function getCompletedTasks(): Promise<Task[]> {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("tasks")
+    .select("*")
+    .not("completed_at", "is", null)
+    .order("completed_at", { ascending: false })
+    .limit(50);
+
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Task[];
+}
+
 // "Today" includes anything due today or overdue, so nothing silently slips.
 // "This Week" is the next 7 days after today.
 export function splitTasksByWindow(tasks: Task[]): { today: Task[]; week: Task[] } {

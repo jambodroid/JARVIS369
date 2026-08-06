@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Task } from "@/lib/tasks";
 import TaskRow from "@/components/TaskRow";
@@ -22,7 +23,44 @@ function Section({ title, tasks }: { title: string; tasks: Task[] }) {
   );
 }
 
-export default function TaskBoard({ today, week }: { today: Task[]; week: Task[] }) {
+function CompletedSection({ tasks }: { tasks: Task[] }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Card>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between text-left"
+      >
+        <span className="text-xs font-semibold uppercase tracking-wider text-ink-2">
+          Completed
+        </span>
+        <span className="text-xs text-ink-3">{open ? "Hide" : `Show (${tasks.length})`}</span>
+      </button>
+
+      {open &&
+        (tasks.length === 0 ? (
+          <p className="mt-3 text-sm text-ink-3">Nothing completed yet.</p>
+        ) : (
+          <ul className="mt-3 flex flex-col gap-2">
+            {tasks.map((task) => (
+              <TaskRow key={task.id} task={task} completed />
+            ))}
+          </ul>
+        ))}
+    </Card>
+  );
+}
+
+export default function TaskBoard({
+  today,
+  week,
+  completed,
+}: {
+  today: Task[];
+  week: Task[];
+  completed: Task[];
+}) {
   const router = useRouter();
 
   async function handleLogout() {
@@ -49,6 +87,7 @@ export default function TaskBoard({ today, week }: { today: Task[]; week: Task[]
         <AddTaskForm />
         <Section title="Today" tasks={today} />
         <Section title="This Week" tasks={week} />
+        <CompletedSection tasks={completed} />
       </main>
     </div>
   );

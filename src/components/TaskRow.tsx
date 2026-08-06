@@ -10,7 +10,7 @@ const PRIORITY_CHIP: Record<Priority, string> = {
   low: "bg-ok/15 text-ok",
 };
 
-export default function TaskRow({ task }: { task: Task }) {
+export default function TaskRow({ task, completed = false }: { task: Task; completed?: boolean }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
 
@@ -19,7 +19,7 @@ export default function TaskRow({ task }: { task: Task }) {
     await fetch(`/api/tasks/${task.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ completed: true }),
+      body: JSON.stringify({ completed: !completed }),
     });
     router.refresh();
   }
@@ -28,13 +28,15 @@ export default function TaskRow({ task }: { task: Task }) {
     <li className="flex items-center gap-3 rounded-xl border border-border/60 bg-surface-2/60 px-3 py-2.5 transition-colors hover:bg-surface-2">
       <input
         type="checkbox"
-        checked={false}
+        checked={completed}
         disabled={pending}
         onChange={handleToggle}
         className="h-5 w-5 shrink-0 accent-accent"
       />
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm text-ink-0">{task.title}</p>
+        <p className={`truncate text-sm ${completed ? "text-ink-3 line-through" : "text-ink-0"}`}>
+          {task.title}
+        </p>
         <p className="text-xs text-ink-3">{task.due_date}</p>
       </div>
       <span
