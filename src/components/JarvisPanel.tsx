@@ -18,15 +18,41 @@ export default function JarvisPanel() {
   const [transcribing, setTranscribing] = useState(false);
   const [micStream, setMicStream] = useState<MediaStream | null>(null);
   const [micError, setMicError] = useState<string | null>(null);
+  const [speaking, setSpeaking] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const speakAudioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [displayMessages, sending, transcribing]);
 
-  async function sendMessage(text: string) {
+  async function speak(text: string) {
+    const res = await fetch("/api/speak", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+    if (!res.ok) return;
+
+    const url = URL.createObjectURL(await res.blob());
+    const audio = new Audio(url);
+    speakAudioRef.current = audio;
+    audio.onended = () => {
+      setSpeaking(false);
+      URL.revokeObjectURL(url);
+    };
+    setSpeaking(true);
+    await audio.play();
+  }
+
+  function stopSpeaking() {
+    speakAudioRef.current?.pause();
+    setSpeaking(false);
+  }
+
+  async function sendMessage(text: string, { voiceReply = false }: { voiceReply?: boolean } = {}) {
     if (!text.trim() || sending) return;
     setSending(true);
     setDisplayMessages((prev) => [...prev, { role: "user", text }]);
@@ -54,6 +80,10 @@ export default function JarvisPanel() {
 
     if (data.mutated) {
       router.refresh();
+    }
+
+    if (voiceReply) {
+      void speak(data.reply);
     }
   }
 
@@ -86,7 +116,7 @@ export default function JarvisPanel() {
 
     const data = (await res.json()) as { text: string };
     if (data.text?.trim()) {
-      await sendMessage(data.text.trim());
+      await sendMessage(data.text.trim(), { voiceReply: true });
     }
   }
 
@@ -141,19 +171,20 @@ export default function JarvisPanel() {
       )}
 
       {recording && <JarvisOrb stream={micStream} />}
+      {speaking && <JarvisOrb audioElement={speakAudioRef.current} />}
       {micError && <p className="mb-2 text-xs text-danger">{micError}</p>}
 
       <form onSubmit={handleSubmit} className="flex items-center gap-2">
         <button
           type="button"
-          onClick={recording ? stopRecording : startRecording}
+          onClick={speaking ? stopSpeaking : recording ? stopRecording : startRecording}
           disabled={busy}
-          aria-label={recording ? "Stop recording" : "Start recording"}
+          aria-label={speaking ? "Stop speaking" : recording ? "Stop recording" : "Start recording"}
           className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-background disabled:opacity-50 ${
-            recording ? "bg-danger" : "bg-accent"
+            recording || speaking ? "bg-danger" : "bg-accent"
           }`}
         >
-          {recording ? "■" : "●"}
+          {recording || speaking ? "■" : "●"}
         </button>
         <input
           type="text"

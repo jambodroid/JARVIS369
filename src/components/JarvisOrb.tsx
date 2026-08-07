@@ -5,16 +5,25 @@ import { useEffect, useRef } from "react";
 // A radar-dial HUD orb: a slowly rotating tick-mark ring (always alive),
 // a reactive mid ring, and a glowing core — both driven in real time by
 // actual microphone volume via the Web Audio API.
-export default function JarvisOrb({ stream }: { stream: MediaStream | null }) {
+export default function JarvisOrb({
+  stream,
+  audioElement,
+}: {
+  stream?: MediaStream | null;
+  audioElement?: HTMLAudioElement | null;
+}) {
   const coreRef = useRef<HTMLDivElement>(null);
   const midRingRef = useRef<SVGCircleElement>(null);
   const rafRef = useRef<number>(0);
 
   useEffect(() => {
-    if (!stream) return;
+    if (!stream && !audioElement) return;
 
     const audioContext = new AudioContext();
-    const source = audioContext.createMediaStreamSource(stream);
+    const source = stream
+      ? audioContext.createMediaStreamSource(stream)
+      : audioContext.createMediaElementSource(audioElement!);
+    if (audioElement) source.connect(audioContext.destination);
     const analyser = audioContext.createAnalyser();
     analyser.fftSize = 256;
     source.connect(analyser);
@@ -43,7 +52,7 @@ export default function JarvisOrb({ stream }: { stream: MediaStream | null }) {
       source.disconnect();
       void audioContext.close();
     };
-  }, [stream]);
+  }, [stream, audioElement]);
 
   return (
     <div className="flex items-center justify-center py-6">
