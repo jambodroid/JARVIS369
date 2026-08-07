@@ -6,14 +6,15 @@ import type { Task } from "@/lib/tasks";
 import type { CalendarEvent } from "@/lib/google";
 import type { NetWorthAccount, NetWorthSnapshot } from "@/lib/netWorth";
 import type { RecurringPayment } from "@/lib/recurringPayments";
+import type { JournalEntry } from "@/lib/tradingJournal";
 import TaskRow from "@/components/TaskRow";
-import AddTaskForm from "@/components/AddTaskForm";
 import Card from "@/components/Card";
 import WeekCalendar from "@/components/WeekCalendar";
 import ConnectGoogleCalendar from "@/components/ConnectGoogleCalendar";
 import JarvisPanel from "@/components/JarvisPanel";
 import NetWorthCard from "@/components/NetWorthCard";
 import TradingCard from "@/components/TradingCard";
+import TradingJournalCard from "@/components/TradingJournalCard";
 import RecurringPaymentsCard from "@/components/RecurringPaymentsCard";
 
 function Section({ title, tasks }: { title: string; tasks: Task[] }) {
@@ -72,6 +73,7 @@ export default function TaskBoard({
   netWorthSnapshots,
   tradingAccount,
   recurringPayments,
+  journalEntries,
 }: {
   today: Task[];
   week: Task[];
@@ -83,6 +85,7 @@ export default function TaskBoard({
   netWorthSnapshots: NetWorthSnapshot[];
   tradingAccount: NetWorthAccount | null;
   recurringPayments: RecurringPayment[];
+  journalEntries: JournalEntry[];
 }) {
   const router = useRouter();
 
@@ -111,7 +114,9 @@ export default function TaskBoard({
 
       <main className="mx-auto flex max-w-lg flex-col gap-4 px-4 py-5 sm:px-6">
         <JarvisPanel />
-        <AddTaskForm />
+        <Section title="Today" tasks={today} />
+        <Section title="This Week" tasks={week} />
+        <CompletedSection tasks={completed} />
         {googleConnected ? (
           <WeekCalendar events={events} />
         ) : (
@@ -119,10 +124,8 @@ export default function TaskBoard({
         )}
         <NetWorthCard accounts={netWorthAccounts} snapshots={netWorthSnapshots} />
         <TradingCard account={tradingAccount} snapshots={netWorthSnapshots} />
+        <TradingJournalCard entries={journalEntries} />
         <RecurringPaymentsCard payments={recurringPayments} />
-        <Section title="Today" tasks={today} />
-        <Section title="This Week" tasks={week} />
-        <CompletedSection tasks={completed} />
       </main>
     </div>
   );

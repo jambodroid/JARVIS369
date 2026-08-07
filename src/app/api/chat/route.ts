@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import type { MessageParam, Tool, ToolResultBlockParam } from "@anthropic-ai/sdk/resources/messages";
-import { getCompletedTasks, getOpenTasks, getTaskById, splitTasksByWindow, type Task } from "@/lib/tasks";
+import { getCompletedTasks, getOpenTasks, getTaskById, localDateKey, splitTasksByWindow, type Task } from "@/lib/tasks";
 import { completeTask, createTask, rescheduleTask } from "@/lib/taskActions";
 import { isGoogleConnected, listWeekEvents } from "@/lib/google";
 import { CATEGORIES } from "@/lib/colors";
@@ -12,6 +12,7 @@ import {
   getRecurringPayments,
   isDueThisWeek,
 } from "@/lib/recurringPayments";
+import { getJournalEntries, upsertJournalEntry } from "@/lib/tradingJournal";
 
 const MODEL = "claude-opus-5";
 const MAX_ITERATIONS = 6;
@@ -132,6 +133,33 @@ const TOOLS: Tool[] = [
       required: ["name"],
     },
   },
+  {
+    name: "log_trading_journal_entry",
+    description:
+      "Log a trading journal entry, usually from a summary the user pastes from their separate trading journal. Extract whether they traded, the day's PnL, and a concise summary from whatever raw text they give you -- don't require a fixed format. Logging this also updates the AMP Trading balance by the PnL amount, so don't separately call update_account_balance for the same change.",
+    input_schema: {
+      type: "object",
+      properties: {
+        entry_date: { type: "string", description: "Date in YYYY-MM-DD. Defaults to today if omitted." },
+        traded: { type: "boolean", description: "Whether the user actually traded that day." },
+        pnl: {
+          type: "number",
+          description: "The day's profit/loss as stated in the summary. Omit or use 0 on a no-trade day.",
+        },
+        summary: {
+          type: "string",
+          description: "A concise summary of the trading day, extracted from what the user gave you.",
+        },
+      },
+      required: ["traded", "summary"],
+    },
+  },
+  {
+    name: "list_trading_journal_entries",
+    description:
+      "List recent trading journal entries (date, traded, pnl, summary). Call this to answer questions about past trading days or to synthesize a weekly/monthly recap.",
+    input_schema: { type: "object", properties: {}, required: [] },
+  },
 ];
 
 function summarizeTask(task: Task) {
@@ -168,6 +196,7 @@ const MUTATING_TOOLS = new Set([
   "update_account_balance",
   "add_recurring_payment",
   "delete_recurring_payment",
+  "log_trading_journal_entry",
 ]);
 
 async function executeTool(name: string, input: Record<string, unknown>, timeZone: string): Promise<unknown> {
@@ -273,6 +302,28 @@ async function executeTool(name: string, input: Record<string, unknown>, timeZon
       if (!name) return { error: "name is required" };
       await deleteRecurringPaymentByName(name);
       return { ok: true };
+    }
+    case "log_trading_journal_entry": {
+      const traded = Boolean(input.traded);
+      const summary = String(input.summary ?? "").trim();
+      if (!summary) return { error: "summary is required" };
+      const entryDate = (input.entry_date as string | undefined) || localDateKey(new Date());
+      const pnl = input.pnl !== undefined && input.pnl !== null ? Number(input.pnl) : null;
+      if (pnl !== null && !Number.isFinite(pnl)) return { error: "pnl must be a number" };
+
+      if (pnl) {
+        const account = await getAccountByName("AMP Trading");
+        if (account) {
+          await updateAccountBalance(account.id, account.balance + pnl);
+        }
+      }
+
+      const entry = await upsertJournalEntry({ entry_date: entryDate, traded, summary, pnl });
+      return { entry };
+    }
+    case "list_trading_journal_entries": {
+      const entries = await getJournalEntries(30);
+      return { entries };
     }
     default:
       return { error: `Unknown tool ${name}` };

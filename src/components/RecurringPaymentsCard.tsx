@@ -1,13 +1,10 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { RecurringPayment } from "@/lib/recurringPayments";
 import { isDueThisWeek } from "@/lib/recurringPayments";
 import Card from "@/components/Card";
-
-const fieldClass =
-  "rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-ink-0 outline-none focus:border-accent";
 
 function formatMoney(n: number) {
   return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP", maximumFractionDigits: 2 }).format(n);
@@ -59,34 +56,8 @@ function PaymentRow({ payment }: { payment: RecurringPayment }) {
 }
 
 export default function RecurringPaymentsCard({ payments }: { payments: RecurringPayment[] }) {
-  const router = useRouter();
-  const [name, setName] = useState("");
-  const [amount, setAmount] = useState("");
-  const [dayOfMonth, setDayOfMonth] = useState("");
-  const [account, setAccount] = useState("HSBC Current Account");
-  const [submitting, setSubmitting] = useState(false);
-
   const sorted = [...payments].sort((a, b) => a.day_of_month - b.day_of_month);
   const monthlyTotal = payments.reduce((sum, p) => sum + p.amount, 0);
-
-  async function handleSubmit(event: FormEvent) {
-    event.preventDefault();
-    const amountNum = Number(amount);
-    const dayNum = Number(dayOfMonth);
-    if (!name.trim() || !Number.isFinite(amountNum) || !Number.isInteger(dayNum)) return;
-
-    setSubmitting(true);
-    await fetch("/api/recurring-payments", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: name.trim(), amount: amountNum, day_of_month: dayNum, account }),
-    });
-    setName("");
-    setAmount("");
-    setDayOfMonth("");
-    setSubmitting(false);
-    router.refresh();
-  }
 
   return (
     <Card title="Direct Debits" count={payments.length}>
@@ -104,49 +75,6 @@ export default function RecurringPaymentsCard({ payments }: { payments: Recurrin
         <span className="text-ink-0">Monthly total</span>
         <span className="font-mono text-accent">{formatMoney(monthlyTotal)}</span>
       </div>
-
-      <form onSubmit={handleSubmit} className="mt-3 flex flex-col gap-2">
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Name"
-          className={fieldClass}
-        />
-        <div className="flex gap-2">
-          <input
-            type="number"
-            step="0.01"
-            inputMode="decimal"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="Amount"
-            className={`${fieldClass} flex-1`}
-          />
-          <input
-            type="number"
-            min="1"
-            max="31"
-            value={dayOfMonth}
-            onChange={(e) => setDayOfMonth(e.target.value)}
-            placeholder="Day"
-            className={`${fieldClass} w-20`}
-          />
-        </div>
-        <div className="flex gap-2">
-          <select value={account} onChange={(e) => setAccount(e.target.value)} className={`${fieldClass} flex-1`}>
-            <option value="HSBC Current Account">HSBC Current Account</option>
-            <option value="HSBC Credit Card">HSBC Credit Card</option>
-          </select>
-          <button
-            type="submit"
-            disabled={submitting || !name.trim() || !amount || !dayOfMonth}
-            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-background disabled:opacity-50"
-          >
-            Add
-          </button>
-        </div>
-      </form>
     </Card>
   );
 }
