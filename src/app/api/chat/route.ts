@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import type { MessageParam, Tool, ToolResultBlockParam } from "@anthropic-ai/sdk/resources/messages";
 import { getCompletedTasks, getOpenTasks, getTaskById, localDateKey, splitTasksByWindow, type Task } from "@/lib/tasks";
-import { completeTask, createTask, rescheduleTask } from "@/lib/taskActions";
+import { completeTask, createTask, deleteTask, rescheduleTask } from "@/lib/taskActions";
 import { isGoogleConnected, listWeekEvents } from "@/lib/google";
 import { CATEGORIES } from "@/lib/colors";
 import { computeTotal, getAccountByName, getNetWorthAccounts, updateAccountBalance } from "@/lib/netWorth";
@@ -52,6 +52,16 @@ const TOOLS: Tool[] = [
   {
     name: "complete_task",
     description: "Mark a task as done. Requires the task's id -- call list_tasks first if you don't have it.",
+    input_schema: {
+      type: "object",
+      properties: { task_id: { type: "string", description: "The task's id, from list_tasks." } },
+      required: ["task_id"],
+    },
+  },
+  {
+    name: "delete_task",
+    description:
+      "Permanently remove a task, e.g. because the user cancelled it or asked to take it off their list. If it has a linked Google Calendar event, that's removed too. Requires the task's id (call list_tasks first if you don't have it).",
     input_schema: {
       type: "object",
       properties: { task_id: { type: "string", description: "The task's id, from list_tasks." } },
@@ -182,7 +192,10 @@ function buildSystemPrompt(timeZone: string): string {
     day: "numeric",
     timeZone,
   });
-  return `You are a helpful assistant embedded in the user's personal task and calendar dashboard. Today is ${today}. The user's timezone is ${timeZone} -- always interpret and produce due_time values in that timezone.
+  const currentTime = now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone });
+  return `You are a helpful assistant embedded in the user's personal task and calendar dashboard. Right now it is ${currentTime} on ${today}. The user's timezone is ${timeZone} -- always interpret and produce due_time values in that timezone.
+
+When the user gives a time without a date (e.g. "add a meeting at 1am"), use today's date if that time hasn't happened yet today, otherwise use tomorrow's date.
 
 Use the tools to look up or change the user's tasks and calendar before answering -- don't guess what's scheduled or already invent task ids. When you take an action (adding, completing, rescheduling a task), briefly confirm what you did in plain language.
 
@@ -192,6 +205,7 @@ Keep replies short and conversational, like a text message -- this is a small ch
 const MUTATING_TOOLS = new Set([
   "add_task",
   "complete_task",
+  "delete_task",
   "reschedule_task",
   "update_account_balance",
   "add_recurring_payment",
@@ -241,6 +255,12 @@ async function executeTool(name: string, input: Record<string, unknown>, timeZon
       if (!taskId) return { error: "task_id is required" };
       const task = await completeTask(taskId, true);
       return { task: summarizeTask(task) };
+    }
+    case "delete_task": {
+      const taskId = String(input.task_id ?? "");
+      if (!taskId) return { error: "task_id is required" };
+      await deleteTask(taskId);
+      return { deleted: true };
     }
     case "reschedule_task": {
       const taskId = String(input.task_id ?? "");

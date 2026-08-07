@@ -259,6 +259,14 @@ export async function upsertTaskEvent(
   return json.id;
 }
 
+export async function deleteCalendarEvent(googleEventId: string): Promise<void> {
+  const res = await fetchGoogleCalendar(`${CALENDAR_API}/${googleEventId}`, { method: "DELETE" });
+  // 404/410 means it's already gone from Google's side -- treat as success.
+  if (!res.ok && res.status !== 404 && res.status !== 410) {
+    throw new Error(`Google Calendar event delete failed: ${await res.text()}`);
+  }
+}
+
 function addMinutes(isoLocal: string, minutes: number): string {
   const [datePart, timePart] = isoLocal.split("T");
   const [h, m] = timePart.split(":").map(Number);

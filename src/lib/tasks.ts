@@ -121,6 +121,12 @@ export async function setTaskCompleted(id: string, completed: boolean): Promise<
   return data as Task;
 }
 
+export async function deleteTaskRow(id: string): Promise<void> {
+  const supabase = getSupabaseClient();
+  const { error } = await supabase.from("tasks").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
 export async function updateTaskDateTime(
   id: string,
   due_date: string | null,

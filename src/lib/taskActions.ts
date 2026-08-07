@@ -1,4 +1,5 @@
 import {
+  deleteTaskRow,
   getTaskById,
   insertTaskRow,
   setTaskCompleted,
@@ -8,7 +9,7 @@ import {
   type Task,
 } from "@/lib/tasks";
 import type { Category } from "@/lib/colors";
-import { upsertTaskEvent } from "@/lib/google";
+import { deleteCalendarEvent, upsertTaskEvent } from "@/lib/google";
 
 async function syncCalendarIfTimed(task: Task, timeZone: string): Promise<Task> {
   if (!task.due_date || !task.due_time) return task;
@@ -48,6 +49,20 @@ export async function rescheduleTask(
 ): Promise<Task> {
   const task = await updateTaskDateTime(id, due_date, due_time);
   return syncCalendarIfTimed(task, timeZone);
+}
+
+export async function deleteTask(id: string): Promise<void> {
+  const task = await getTaskById(id);
+  if (task?.google_event_id) {
+    try {
+      await deleteCalendarEvent(task.google_event_id);
+    } catch (error) {
+      // Task deletion should still go through even if Google's side fails --
+      // an orphaned calendar event is recoverable, a stuck task isn't.
+      console.error("Failed to delete Google Calendar event", error);
+    }
+  }
+  await deleteTaskRow(id);
 }
 
 export { getTaskById };
