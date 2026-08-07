@@ -70,7 +70,7 @@ function AccountRow({ account }: { account: NetWorthAccount }) {
     <div className="flex items-center justify-between text-sm">
       <span className="text-ink-1">{account.name}</span>
       <div className="flex items-center gap-2">
-        <span className={`font-mono ${account.kind === "liability" ? "text-danger" : "text-ink-0"}`}>
+        <span className={`font-mono ${account.kind === "liability" ? "text-danger" : "text-ok"}`}>
           {account.kind === "liability" ? "-" : ""}
           {formatMoney(account.balance, account.currency)}
         </span>

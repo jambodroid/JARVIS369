@@ -1,4 +1,4 @@
-import { getSupabaseClient } from "@/lib/supabase";
+import { getSupabaseClient, withTransientRetry } from "@/lib/supabase";
 import { GOOGLE_COLOR_ID, resolveColor } from "@/lib/colors";
 import type { Task } from "@/lib/tasks";
 import { addDays, localDateKey } from "@/lib/tasks";
@@ -42,15 +42,17 @@ type GoogleAuthRow = {
 };
 
 async function getStoredAuth(): Promise<GoogleAuthRow | null> {
-  const supabase = getSupabaseClient();
-  const { data, error } = await supabase
-    .from("google_auth")
-    .select("refresh_token, access_token, access_token_expires_at")
-    .eq("id", 1)
-    .maybeSingle();
+  return withTransientRetry(async () => {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from("google_auth")
+      .select("refresh_token, access_token, access_token_expires_at")
+      .eq("id", 1)
+      .maybeSingle();
 
-  if (error) throw new Error(error.message);
-  return data as GoogleAuthRow | null;
+    if (error) throw new Error(error.message);
+    return data as GoogleAuthRow | null;
+  });
 }
 
 export async function exchangeCodeForTokens(code: string, redirectUri: string): Promise<void> {
