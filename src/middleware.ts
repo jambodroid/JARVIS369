@@ -11,9 +11,14 @@ const PUBLIC_PATHS = new Set([
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Cron routes carry no session cookie (Vercel Cron invokes them directly) --
-  // they authenticate themselves via a CRON_SECRET bearer token instead.
-  if (PUBLIC_PATHS.has(pathname) || pathname.startsWith("/api/cron/")) {
+  // Cron routes and the Health Auto Export webhook carry no session cookie
+  // (they're invoked directly by an external caller) -- they authenticate
+  // themselves via their own secret instead.
+  if (
+    PUBLIC_PATHS.has(pathname) ||
+    pathname.startsWith("/api/cron/") ||
+    pathname === "/api/health/webhook"
+  ) {
     return NextResponse.next();
   }
 

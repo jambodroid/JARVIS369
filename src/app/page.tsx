@@ -5,6 +5,7 @@ import { getRecurringPayments } from "@/lib/recurringPayments";
 import { getJournalEntries } from "@/lib/tradingJournal";
 import { getSelfEntries } from "@/lib/selfEntries";
 import { getHealthEntries } from "@/lib/healthEntries";
+import { getHealthMetrics } from "@/lib/healthMetrics";
 import TaskBoard from "@/components/TaskBoard";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +27,7 @@ export default async function HomePage({
     journalEntries,
     selfEntries,
     healthEntries,
+    healthMetrics,
   ] = await Promise.all([
     getOpenTasks(),
     getCompletedTasks(),
@@ -36,6 +38,7 @@ export default async function HomePage({
     getJournalEntries(),
     getSelfEntries(),
     getHealthEntries(),
+    getHealthMetrics(),
   ]);
   const events = googleConnected ? await listWeekEvents() : [];
   const tradingAccount = await getAccountByName("AMP Trading");
@@ -54,6 +57,7 @@ export default async function HomePage({
       journalEntries={journalEntries}
       selfEntries={selfEntries}
       healthEntries={healthEntries}
+      healthMetrics={healthMetrics}
     />
   );
 }

@@ -10,6 +10,7 @@ import type { RecurringPayment } from "@/lib/recurringPayments";
 import { getTodayEntry, type JournalEntry } from "@/lib/tradingJournal";
 import { getTodayEntries as getTodaySelfEntries, type SelfEntry } from "@/lib/selfEntries";
 import { getTodayEntries as getTodayHealthEntries, type HealthEntry, type HealthEntryType } from "@/lib/healthEntries";
+import type { HealthMetricsDay } from "@/lib/healthMetrics";
 import TaskRow from "@/components/TaskRow";
 import Card from "@/components/Card";
 import CollapsibleSection from "@/components/CollapsibleSection";
@@ -77,6 +78,7 @@ export default function TaskBoard({
   journalEntries,
   selfEntries,
   healthEntries,
+  healthMetrics,
 }: {
   openTasks: Task[];
   completed: Task[];
@@ -90,6 +92,7 @@ export default function TaskBoard({
   journalEntries: JournalEntry[];
   selfEntries: SelfEntry[];
   healthEntries: HealthEntry[];
+  healthMetrics: HealthMetricsDay[];
 }) {
   const router = useRouter();
   const [passkeyStatus, setPasskeyStatus] = useState<string | null>(null);
@@ -151,22 +154,27 @@ export default function TaskBoard({
     <p className="text-xs text-ink-3">No entry yet today.</p>
   );
 
+  const todayDateKey = (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  })();
+  const todayMetrics = healthMetrics.find((m) => m.metric_date === todayDateKey) ?? null;
   const todayHealthEntries = getTodayHealthEntries(healthEntries);
+  const healthPreviewParts = [
+    todayMetrics?.steps != null ? `${todayMetrics.steps.toLocaleString()} steps` : null,
+    todayMetrics?.sleep_hours != null ? `${todayMetrics.sleep_hours.toFixed(1)}h sleep` : null,
+    ...(["meal", "training", "sleep"] as HealthEntryType[]).map((type) => {
+      const count = todayHealthEntries.filter((e) => e.entry_type === type).length;
+      if (count === 0) return null;
+      const [singular, plural] = HEALTH_TYPE_NOUN[type];
+      return `${count} ${count === 1 ? singular : plural}`;
+    }),
+  ].filter(Boolean);
   const healthPreview =
-    todayHealthEntries.length === 0 ? (
+    healthPreviewParts.length === 0 ? (
       <p className="text-xs text-ink-3">Nothing logged today yet.</p>
     ) : (
-      <p className="truncate text-xs text-ink-2">
-        {(["meal", "training", "sleep"] as HealthEntryType[])
-          .map((type) => {
-            const count = todayHealthEntries.filter((e) => e.entry_type === type).length;
-            if (count === 0) return null;
-            const [singular, plural] = HEALTH_TYPE_NOUN[type];
-            return `${count} ${count === 1 ? singular : plural}`;
-          })
-          .filter(Boolean)
-          .join(" · ")}
-      </p>
+      <p className="truncate text-xs text-ink-2">{healthPreviewParts.join(" · ")}</p>
     );
 
   const todaySelfEntries = getTodaySelfEntries(selfEntries);
@@ -233,7 +241,7 @@ export default function TaskBoard({
         </CollapsibleSection>
 
         <CollapsibleSection title="Health" preview={healthPreview}>
-          <HealthCard entries={healthEntries} />
+          <HealthCard entries={healthEntries} metrics={healthMetrics} />
         </CollapsibleSection>
 
         <CollapsibleSection title="Self" preview={selfPreview}>

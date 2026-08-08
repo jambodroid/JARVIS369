@@ -15,6 +15,7 @@ import {
 import { getJournalEntries, upsertJournalEntry } from "@/lib/tradingJournal";
 import { createSelfEntry, getSelfEntries, type EntryType } from "@/lib/selfEntries";
 import { createHealthEntry, getHealthEntries, type HealthEntryType } from "@/lib/healthEntries";
+import { estimateNutrition } from "@/lib/nutrition";
 
 const MODEL = "claude-opus-5";
 const MAX_ITERATIONS = 6;
@@ -305,6 +306,8 @@ When the user gives a time without a date (e.g. "add a meeting at 1am"), use tod
 
 When creating or categorizing a task or calendar event, default anything related to editing, filming, or video/content creation to the "social" category (Social Media) unless the user says otherwise.
 
+When a message starts with "journal:" or otherwise clearly expresses intent to journal or reflect, always log it verbatim via add_self_entry with entry_type "journal" -- don't treat it as a task or paraphrase it.
+
 Use the tools to look up or change the user's tasks and calendar before answering -- don't guess what's scheduled or already invent task ids. When you take an action (adding, completing, rescheduling a task), briefly confirm what you did in plain language.
 
 Keep replies short and conversational, like a text message -- this is a small chat widget on a phone screen.`;
@@ -505,7 +508,25 @@ async function executeTool(name: string, input: Record<string, unknown>, timeZon
       const content = String(input.content ?? "").trim();
       if (!entryType) return { error: "entry_type is required" };
       if (!content) return { error: "content is required" };
-      const entry = await createHealthEntry({ entry_type: entryType, content });
+
+      let macros: Partial<Awaited<ReturnType<typeof estimateNutrition>>> = {};
+      if (entryType === "meal") {
+        // Best-effort -- the meal still logs even if the estimate call fails.
+        try {
+          macros = await estimateNutrition(content);
+        } catch (error) {
+          console.error("Failed to estimate meal nutrition", error);
+        }
+      }
+
+      const entry = await createHealthEntry({
+        entry_type: entryType,
+        content,
+        kcal: macros.kcal,
+        protein_g: macros.protein,
+        carbs_g: macros.carbs,
+        fat_g: macros.fat,
+      });
       return { entry };
     }
     case "list_health_entries": {

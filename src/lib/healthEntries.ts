@@ -7,6 +7,10 @@ export type HealthEntry = {
   entry_type: HealthEntryType;
   content: string;
   created_at: string;
+  kcal: number | null;
+  protein_g: number | null;
+  carbs_g: number | null;
+  fat_g: number | null;
 };
 
 export async function getHealthEntries(limit = 100): Promise<HealthEntry[]> {
@@ -25,6 +29,10 @@ export async function getHealthEntries(limit = 100): Promise<HealthEntry[]> {
 export async function createHealthEntry(input: {
   entry_type: HealthEntryType;
   content: string;
+  kcal?: number;
+  protein_g?: number;
+  carbs_g?: number;
+  fat_g?: number;
 }): Promise<HealthEntry> {
   const supabase = getSupabaseClient();
   const { data, error } = await supabase.from("health_entries").insert(input).select().single();
