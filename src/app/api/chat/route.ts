@@ -19,6 +19,7 @@ import {
   createContentItem,
   getClients,
   getContentItems,
+  setContentItemDueDate,
   updateContentItemStatus,
   type ContentStatus,
 } from "@/lib/socialBusiness";
@@ -298,10 +299,14 @@ const TOOLS: Tool[] = [
         },
         status: {
           type: "string",
-          enum: ["idea", "scripted", "filmed", "edited", "posted"],
+          enum: ["idea", "scripted", "filmed", "edited", "scheduled", "posted"],
           description: "Where it is in the pipeline right now. Defaults to 'idea' if unclear.",
         },
         platform: { type: "string", description: "e.g. 'TikTok', 'Instagram'. Omit if not mentioned." },
+        due_date: {
+          type: "string",
+          description: "Planned posting date, YYYY-MM-DD. If given, a calendar event is created automatically at 6pm that day. Omit if no date is planned yet.",
+        },
       },
       required: ["title"],
     },
@@ -309,14 +314,27 @@ const TOOLS: Tool[] = [
   {
     name: "update_content_item_status",
     description:
-      "Move a content item forward (or back) through the pipeline: idea -> scripted -> filmed -> edited -> posted. Call list_content_items first to find the item's id.",
+      "Move a content item forward (or back) through the pipeline: idea -> scripted -> filmed -> edited -> scheduled -> posted. Call list_content_items first to find the item's id.",
     input_schema: {
       type: "object",
       properties: {
         content_item_id: { type: "string", description: "The content item's id, from list_content_items." },
-        status: { type: "string", enum: ["idea", "scripted", "filmed", "edited", "posted"] },
+        status: { type: "string", enum: ["idea", "scripted", "filmed", "edited", "scheduled", "posted"] },
       },
       required: ["content_item_id", "status"],
+    },
+  },
+  {
+    name: "set_content_item_due_date",
+    description:
+      "Set or change a content item's planned posting date. Creates or moves a 6pm calendar event for that day automatically. Call list_content_items first to find the item's id.",
+    input_schema: {
+      type: "object",
+      properties: {
+        content_item_id: { type: "string", description: "The content item's id, from list_content_items." },
+        due_date: { type: "string", description: "New planned posting date, YYYY-MM-DD." },
+      },
+      required: ["content_item_id", "due_date"],
     },
   },
   {
@@ -328,7 +346,7 @@ const TOOLS: Tool[] = [
         client_name: { type: "string", description: "Only return items for this client. Omit for all." },
         status: {
           type: "string",
-          enum: ["idea", "scripted", "filmed", "edited", "posted"],
+          enum: ["idea", "scripted", "filmed", "edited", "scheduled", "posted"],
           description: "Only return items at this stage. Omit for all.",
         },
       },
@@ -391,6 +409,7 @@ const MUTATING_TOOLS = new Set([
   "add_health_entry",
   "add_content_item",
   "update_content_item_status",
+  "set_content_item_due_date",
 ]);
 
 async function executeTool(name: string, input: Record<string, unknown>, timeZone: string): Promise<unknown> {
@@ -602,12 +621,16 @@ async function executeTool(name: string, input: Record<string, unknown>, timeZon
     case "add_content_item": {
       const title = String(input.title ?? "").trim();
       if (!title) return { error: "title is required" };
-      const item = await createContentItem({
-        title,
-        client_name: input.client_name as string | undefined,
-        status: input.status as ContentStatus | undefined,
-        platform: input.platform as string | undefined,
-      });
+      const item = await createContentItem(
+        {
+          title,
+          client_name: input.client_name as string | undefined,
+          status: input.status as ContentStatus | undefined,
+          platform: input.platform as string | undefined,
+          due_date: input.due_date as string | undefined,
+        },
+        timeZone,
+      );
       return { item };
     }
     case "update_content_item_status": {
@@ -616,6 +639,14 @@ async function executeTool(name: string, input: Record<string, unknown>, timeZon
       if (!itemId) return { error: "content_item_id is required" };
       if (!status) return { error: "status is required" };
       const item = await updateContentItemStatus(itemId, status);
+      return { item };
+    }
+    case "set_content_item_due_date": {
+      const itemId = String(input.content_item_id ?? "");
+      const dueDate = String(input.due_date ?? "");
+      if (!itemId) return { error: "content_item_id is required" };
+      if (!dueDate) return { error: "due_date is required" };
+      const item = await setContentItemDueDate(itemId, dueDate, timeZone);
       return { item };
     }
     case "list_content_items": {

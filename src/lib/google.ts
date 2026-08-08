@@ -1,5 +1,5 @@
 import { getSupabaseClient, withTransientRetry } from "@/lib/supabase";
-import { GOOGLE_COLOR_ID, resolveColor } from "@/lib/colors";
+import { categoryToGoogleColorId, GOOGLE_COLOR_ID, resolveColor } from "@/lib/colors";
 import type { Task } from "@/lib/tasks";
 import { addDays, localDateKey } from "@/lib/tasks";
 
@@ -244,6 +244,43 @@ export async function upsertTaskEvent(
 
   const url = task.google_event_id ? `${CALENDAR_API}/${task.google_event_id}` : CALENDAR_API;
   const method = task.google_event_id ? "PATCH" : "POST";
+
+  const res = await fetchGoogleCalendar(url, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Google Calendar event ${method} failed: ${await res.text()}`);
+  }
+
+  const json = (await res.json()) as { id: string };
+  return json.id;
+}
+
+// Creates (or updates, if already synced) a 6pm posting-reminder event for
+// a content pipeline item's planned due date. Same create-vs-update shape
+// as upsertTaskEvent -- always the "social" category color, since these
+// are always social media content regardless of the task category system.
+export async function upsertContentItemEvent(
+  item: { title: string; client_name: string | null; due_date: string; google_event_id: string | null },
+  timeZone: string,
+): Promise<string> {
+  const colorId = categoryToGoogleColorId("social");
+  const startDateTime = `${item.due_date}T18:00:00`;
+  const endDateTime = addMinutes(startDateTime, 30);
+  const summary = item.client_name ? `${item.title} (${item.client_name})` : item.title;
+
+  const body = {
+    summary,
+    colorId,
+    start: { dateTime: startDateTime, timeZone },
+    end: { dateTime: endDateTime, timeZone },
+  };
+
+  const url = item.google_event_id ? `${CALENDAR_API}/${item.google_event_id}` : CALENDAR_API;
+  const method = item.google_event_id ? "PATCH" : "POST";
 
   const res = await fetchGoogleCalendar(url, {
     method,

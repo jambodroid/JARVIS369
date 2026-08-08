@@ -241,6 +241,10 @@ export default function TaskBoard({
           )}
         </CollapsibleSection>
 
+        <CollapsibleSection title="Business" preview={businessPreview}>
+          <SocialBusinessCard items={contentItems} />
+        </CollapsibleSection>
+
         <CollapsibleSection title="Finances" preview={financesPreview}>
           <NetWorthCard accounts={netWorthAccounts} snapshots={netWorthSnapshots} />
           <RecurringPaymentsCard payments={recurringPayments} />
@@ -257,10 +261,6 @@ export default function TaskBoard({
 
         <CollapsibleSection title="Self" preview={selfPreview}>
           <SelfCard entries={selfEntries} />
-        </CollapsibleSection>
-
-        <CollapsibleSection title="Business" preview={businessPreview}>
-          <SocialBusinessCard items={contentItems} />
         </CollapsibleSection>
       </main>
     </div>
