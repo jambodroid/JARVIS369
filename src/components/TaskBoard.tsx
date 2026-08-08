@@ -6,8 +6,9 @@ import type { Task } from "@/lib/tasks";
 import type { CalendarEvent } from "@/lib/google";
 import type { NetWorthAccount, NetWorthSnapshot } from "@/lib/netWorth";
 import type { RecurringPayment } from "@/lib/recurringPayments";
-import type { JournalEntry } from "@/lib/tradingJournal";
-import type { SelfEntry } from "@/lib/selfEntries";
+import { getTodayEntry, type JournalEntry } from "@/lib/tradingJournal";
+import { getTodayEntries as getTodaySelfEntries, type SelfEntry } from "@/lib/selfEntries";
+import { getTodayEntries as getTodayHealthEntries, type HealthEntry, type HealthEntryType } from "@/lib/healthEntries";
 import TaskRow from "@/components/TaskRow";
 import Card from "@/components/Card";
 import CollapsibleSection from "@/components/CollapsibleSection";
@@ -20,6 +21,17 @@ import TradingJournalCard from "@/components/TradingJournalCard";
 import RecurringPaymentsCard from "@/components/RecurringPaymentsCard";
 import HealthCard from "@/components/HealthCard";
 import SelfCard from "@/components/SelfCard";
+import TrendChart from "@/components/TrendChart";
+
+function formatMoney(n: number) {
+  return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP", maximumFractionDigits: 0 }).format(n);
+}
+
+const HEALTH_TYPE_NOUN: Record<HealthEntryType, [string, string]> = {
+  meal: ["meal", "meals"],
+  training: ["training session", "training sessions"],
+  sleep: ["sleep entry", "sleep entries"],
+};
 
 function Section({ title, tasks }: { title: string; tasks: Task[] }) {
   return (
@@ -79,6 +91,7 @@ export default function TaskBoard({
   recurringPayments,
   journalEntries,
   selfEntries,
+  healthEntries,
 }: {
   today: Task[];
   week: Task[];
@@ -92,6 +105,7 @@ export default function TaskBoard({
   recurringPayments: RecurringPayment[];
   journalEntries: JournalEntry[];
   selfEntries: SelfEntry[];
+  healthEntries: HealthEntry[];
 }) {
   const router = useRouter();
 
@@ -100,6 +114,54 @@ export default function TaskBoard({
     router.replace("/login");
     router.refresh();
   }
+
+  const financesPreview = (
+    <TrendChart
+      data={netWorthSnapshots.slice(-30).map((s) => ({ date: s.snapshot_date, value: s.total }))}
+      formatValue={formatMoney}
+    />
+  );
+
+  const todayTradingEntry = getTodayEntry(journalEntries);
+  const tradingPreview = todayTradingEntry ? (
+    <div className="flex items-center justify-between gap-2">
+      <p className="truncate text-xs text-ink-2">{todayTradingEntry.summary || "Logged, no summary."}</p>
+      {todayTradingEntry.pnl !== null && (
+        <span className={`shrink-0 font-mono text-xs font-medium ${todayTradingEntry.pnl >= 0 ? "text-ok" : "text-danger"}`}>
+          {todayTradingEntry.pnl >= 0 ? "+" : ""}
+          {formatMoney(todayTradingEntry.pnl)}
+        </span>
+      )}
+    </div>
+  ) : (
+    <p className="text-xs text-ink-3">No entry yet today.</p>
+  );
+
+  const todayHealthEntries = getTodayHealthEntries(healthEntries);
+  const healthPreview =
+    todayHealthEntries.length === 0 ? (
+      <p className="text-xs text-ink-3">Nothing logged today yet.</p>
+    ) : (
+      <p className="truncate text-xs text-ink-2">
+        {(["meal", "training", "sleep"] as HealthEntryType[])
+          .map((type) => {
+            const count = todayHealthEntries.filter((e) => e.entry_type === type).length;
+            if (count === 0) return null;
+            const [singular, plural] = HEALTH_TYPE_NOUN[type];
+            return `${count} ${count === 1 ? singular : plural}`;
+          })
+          .filter(Boolean)
+          .join(" · ")}
+      </p>
+    );
+
+  const todaySelfEntries = getTodaySelfEntries(selfEntries);
+  const latestSelfEntry = todaySelfEntries[0] ?? null;
+  const selfPreview = latestSelfEntry ? (
+    <p className="truncate text-xs text-ink-2">{latestSelfEntry.content}</p>
+  ) : (
+    <p className="text-xs text-ink-3">Nothing logged today yet.</p>
+  );
 
   return (
     <div className="min-h-screen bg-background">
@@ -132,21 +194,21 @@ export default function TaskBoard({
           )}
         </CollapsibleSection>
 
-        <CollapsibleSection title="Finances">
+        <CollapsibleSection title="Finances" preview={financesPreview}>
           <NetWorthCard accounts={netWorthAccounts} snapshots={netWorthSnapshots} />
           <RecurringPaymentsCard payments={recurringPayments} />
         </CollapsibleSection>
 
-        <CollapsibleSection title="Trading">
+        <CollapsibleSection title="Trading" preview={tradingPreview}>
           <TradingCard account={tradingAccount} snapshots={netWorthSnapshots} />
           <TradingJournalCard entries={journalEntries} />
         </CollapsibleSection>
 
-        <CollapsibleSection title="Health">
-          <HealthCard />
+        <CollapsibleSection title="Health" preview={healthPreview}>
+          <HealthCard entries={healthEntries} />
         </CollapsibleSection>
 
-        <CollapsibleSection title="Self">
+        <CollapsibleSection title="Self" preview={selfPreview}>
           <SelfCard entries={selfEntries} />
         </CollapsibleSection>
       </main>

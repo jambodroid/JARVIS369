@@ -9,7 +9,7 @@ const START_HOUR = 6;
 const END_HOUR = 24;
 const HOUR_HEIGHT = 44; // px
 const DAY_COL_WIDTH = 88; // px
-const GUTTER_WIDTH = 30; // px
+const GUTTER_WIDTH = 42; // px
 const HEADER_HEIGHT = 30; // px
 const MIN_BLOCK_MINUTES = 20;
 
@@ -53,9 +53,9 @@ function formatTime(iso: string): string {
 
 function formatHourLabel(hour: number): string {
   const h = hour % 24;
-  const period = h < 12 ? "a" : "p";
+  const period = h < 12 ? "AM" : "PM";
   const display = h % 12 === 0 ? 12 : h % 12;
-  return `${display}${period}`;
+  return `${display} ${period}`;
 }
 
 type PositionedEvent = { event: CalendarEvent; startMin: number; endMin: number; col: number; cols: number };
@@ -165,7 +165,7 @@ export default function WeekCalendar({ events }: { events: CalendarEvent[] }) {
             {hours.map((h) => (
               <div
                 key={h}
-                className="pr-1 text-right text-[10px] leading-none text-ink-4"
+                className="whitespace-nowrap pr-1 text-right text-[9px] leading-none text-ink-4"
                 style={{ height: HOUR_HEIGHT }}
               >
                 {formatHourLabel(h)}

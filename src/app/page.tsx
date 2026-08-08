@@ -4,6 +4,7 @@ import { getAccountByName, getNetWorthAccounts, getNetWorthSnapshots } from "@/l
 import { getRecurringPayments } from "@/lib/recurringPayments";
 import { getJournalEntries } from "@/lib/tradingJournal";
 import { getSelfEntries } from "@/lib/selfEntries";
+import { getHealthEntries } from "@/lib/healthEntries";
 import TaskBoard from "@/components/TaskBoard";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +25,7 @@ export default async function HomePage({
     recurringPayments,
     journalEntries,
     selfEntries,
+    healthEntries,
   ] = await Promise.all([
     getOpenTasks(),
     getCompletedTasks(),
@@ -33,6 +35,7 @@ export default async function HomePage({
     getRecurringPayments(),
     getJournalEntries(),
     getSelfEntries(),
+    getHealthEntries(),
   ]);
   const { today, week } = splitTasksByWindow(openTasks);
   const events = googleConnected ? await listWeekEvents() : [];
@@ -52,6 +55,7 @@ export default async function HomePage({
       recurringPayments={recurringPayments}
       journalEntries={journalEntries}
       selfEntries={selfEntries}
+      healthEntries={healthEntries}
     />
   );
 }

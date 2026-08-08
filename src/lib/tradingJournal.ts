@@ -1,4 +1,5 @@
 import { getSupabaseClient, withTransientRetry } from "@/lib/supabase";
+import { localDateKey } from "@/lib/tasks";
 
 export type JournalEntry = {
   id: string;
@@ -42,6 +43,12 @@ export async function upsertJournalEntry(input: {
     .single();
   if (error) throw new Error(error.message);
   return data as JournalEntry;
+}
+
+// Pure -- no Supabase call. Used for the collapsed-section preview.
+export function getTodayEntry(entries: JournalEntry[]): JournalEntry | null {
+  const todayKey = localDateKey(new Date());
+  return entries.find((e) => e.entry_date === todayKey) ?? null;
 }
 
 function sumKnownPnl(entries: JournalEntry[]): number | null {

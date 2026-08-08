@@ -28,3 +28,10 @@ export async function createSelfEntry(input: { entry_type: EntryType; content: s
   if (error) throw new Error(error.message);
   return data as SelfEntry;
 }
+
+// Pure -- no Supabase call. Used for the collapsed-section preview, which
+// changes day to day as new entries are logged.
+export function getTodayEntries(entries: SelfEntry[]): SelfEntry[] {
+  const todayKey = new Date().toDateString();
+  return entries.filter((e) => new Date(e.created_at).toDateString() === todayKey);
+}

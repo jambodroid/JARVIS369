@@ -14,6 +14,7 @@ import {
 } from "@/lib/recurringPayments";
 import { getJournalEntries, upsertJournalEntry } from "@/lib/tradingJournal";
 import { createSelfEntry, getSelfEntries, type EntryType } from "@/lib/selfEntries";
+import { createHealthEntry, getHealthEntries, type HealthEntryType } from "@/lib/healthEntries";
 
 const MODEL = "claude-opus-5";
 const MAX_ITERATIONS = 6;
@@ -204,6 +205,39 @@ const TOOLS: Tool[] = [
       required: [],
     },
   },
+  {
+    name: "add_health_entry",
+    description:
+      "Log a health entry -- a meal, a training session, or sleep. Use whenever the user tells you something that fits one of these, even in passing conversation.",
+    input_schema: {
+      type: "object",
+      properties: {
+        entry_type: {
+          type: "string",
+          enum: ["meal", "training", "sleep"],
+          description: "Which kind of entry this is.",
+        },
+        content: { type: "string", description: "The entry text, in the user's own words where possible." },
+      },
+      required: ["entry_type", "content"],
+    },
+  },
+  {
+    name: "list_health_entries",
+    description:
+      "List recent health entries (meals, training, sleep). Call this to answer questions about past entries or recall something the user logged before.",
+    input_schema: {
+      type: "object",
+      properties: {
+        entry_type: {
+          type: "string",
+          enum: ["meal", "training", "sleep"],
+          description: "Only return entries of this type. Omit to return all types.",
+        },
+      },
+      required: [],
+    },
+  },
 ];
 
 function summarizeTask(task: Task) {
@@ -246,6 +280,7 @@ const MUTATING_TOOLS = new Set([
   "delete_recurring_payment",
   "log_trading_journal_entry",
   "add_self_entry",
+  "add_health_entry",
 ]);
 
 async function executeTool(name: string, input: Record<string, unknown>, timeZone: string): Promise<unknown> {
@@ -391,6 +426,19 @@ async function executeTool(name: string, input: Record<string, unknown>, timeZon
     case "list_self_entries": {
       const entryType = input.entry_type as EntryType | undefined;
       const entries = await getSelfEntries(50);
+      return { entries: entryType ? entries.filter((e) => e.entry_type === entryType) : entries };
+    }
+    case "add_health_entry": {
+      const entryType = input.entry_type as HealthEntryType | undefined;
+      const content = String(input.content ?? "").trim();
+      if (!entryType) return { error: "entry_type is required" };
+      if (!content) return { error: "content is required" };
+      const entry = await createHealthEntry({ entry_type: entryType, content });
+      return { entry };
+    }
+    case "list_health_entries": {
+      const entryType = input.entry_type as HealthEntryType | undefined;
+      const entries = await getHealthEntries(50);
       return { entries: entryType ? entries.filter((e) => e.entry_type === entryType) : entries };
     }
     default:
