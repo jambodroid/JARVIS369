@@ -12,6 +12,7 @@ import { getTodayEntries as getTodayHealthEntries, type HealthEntry, type Health
 import TaskRow from "@/components/TaskRow";
 import Card from "@/components/Card";
 import CollapsibleSection from "@/components/CollapsibleSection";
+import TaskPeriodSection from "@/components/TaskPeriodSection";
 import WeekCalendar from "@/components/WeekCalendar";
 import ConnectGoogleCalendar from "@/components/ConnectGoogleCalendar";
 import JarvisPanel from "@/components/JarvisPanel";
@@ -32,22 +33,6 @@ const HEALTH_TYPE_NOUN: Record<HealthEntryType, [string, string]> = {
   training: ["training session", "training sessions"],
   sleep: ["sleep entry", "sleep entries"],
 };
-
-function Section({ title, tasks }: { title: string; tasks: Task[] }) {
-  return (
-    <Card title={title} count={tasks.length}>
-      {tasks.length === 0 ? (
-        <p className="text-sm text-ink-3">Nothing here.</p>
-      ) : (
-        <ul className="flex flex-col gap-2">
-          {tasks.map((task) => (
-            <TaskRow key={task.id} task={task} />
-          ))}
-        </ul>
-      )}
-    </Card>
-  );
-}
 
 function CompletedSection({ tasks }: { tasks: Task[] }) {
   const [open, setOpen] = useState(false);
@@ -79,8 +64,7 @@ function CompletedSection({ tasks }: { tasks: Task[] }) {
 }
 
 export default function TaskBoard({
-  today,
-  week,
+  openTasks,
   completed,
   googleConnected,
   events,
@@ -93,8 +77,7 @@ export default function TaskBoard({
   selfEntries,
   healthEntries,
 }: {
-  today: Task[];
-  week: Task[];
+  openTasks: Task[];
   completed: Task[];
   googleConnected: boolean;
   events: CalendarEvent[];
@@ -184,8 +167,7 @@ export default function TaskBoard({
         <JarvisPanel />
 
         <CollapsibleSection title="Today" defaultOpen>
-          <Section title="Today" tasks={today} />
-          <Section title="This Week" tasks={week} />
+          <TaskPeriodSection tasks={openTasks} />
           <CompletedSection tasks={completed} />
           {googleConnected ? (
             <WeekCalendar events={events} />

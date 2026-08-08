@@ -1,4 +1,4 @@
-import { getCompletedTasks, getOpenTasks, splitTasksByWindow } from "@/lib/tasks";
+import { getCompletedTasks, getOpenTasks } from "@/lib/tasks";
 import { isGoogleConnected, listWeekEvents } from "@/lib/google";
 import { getAccountByName, getNetWorthAccounts, getNetWorthSnapshots } from "@/lib/netWorth";
 import { getRecurringPayments } from "@/lib/recurringPayments";
@@ -37,14 +37,12 @@ export default async function HomePage({
     getSelfEntries(),
     getHealthEntries(),
   ]);
-  const { today, week } = splitTasksByWindow(openTasks);
   const events = googleConnected ? await listWeekEvents() : [];
   const tradingAccount = await getAccountByName("AMP Trading");
 
   return (
     <TaskBoard
-      today={today}
-      week={week}
+      openTasks={openTasks}
       completed={completed}
       googleConnected={googleConnected}
       events={events}

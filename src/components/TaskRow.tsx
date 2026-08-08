@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { Task } from "@/lib/tasks";
-import { COLOR_DOT_CLASS, resolveColor } from "@/lib/colors";
+import { CATEGORY_LABEL, COLOR_CHIP_CLASS, COLOR_DOT_CLASS, resolveColor } from "@/lib/colors";
 import { useRouter } from "next/navigation";
 
 function formatMeta(task: Task): string | null {
@@ -42,7 +42,12 @@ export default function TaskRow({ task, completed = false }: { task: Task; compl
         <p className={`truncate text-sm ${completed ? "text-ink-3 line-through" : "text-ink-0"}`}>
           {task.title}
         </p>
-        {meta && <p className="font-mono text-xs text-ink-3">{meta}</p>}
+        <div className="mt-0.5 flex items-center gap-2">
+          {meta && <span className="font-mono text-xs text-ink-3">{meta}</span>}
+          <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${COLOR_CHIP_CLASS[color]}`}>
+            {CATEGORY_LABEL[task.category]}
+          </span>
+        </div>
       </div>
     </li>
   );

@@ -59,7 +59,7 @@ function byPriority(a: Task, b: Task): number {
   return PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority];
 }
 
-function byTimeThenPriority(a: Task, b: Task): number {
+export function byTimeThenPriority(a: Task, b: Task): number {
   if (a.due_time !== b.due_time) {
     if (a.due_time === null) return 1;
     if (b.due_time === null) return -1;
@@ -68,7 +68,7 @@ function byTimeThenPriority(a: Task, b: Task): number {
   return byPriority(a, b);
 }
 
-function byDateThenPriority(a: Task, b: Task): number {
+export function byDateThenPriority(a: Task, b: Task): number {
   if (a.due_date !== b.due_date) {
     if (a.due_date === null) return 1;
     if (b.due_date === null) return -1;
@@ -168,4 +168,19 @@ export function splitTasksByWindow(tasks: Task[]): { today: Task[]; week: Task[]
   week.sort(byDateThenPriority);
 
   return { today, week };
+}
+
+// Powers the Day/Week/Month toggle on the dashboard. "day" keeps the same
+// semantics as splitTasksByWindow's "today" (due today or overdue);
+// "week"/"month" keep its "week" semantics (due within N days, or no due
+// date at all) with N = 7 or 30.
+export function getTasksForPeriod(tasks: Task[], period: "day" | "week" | "month"): Task[] {
+  const todayKey = localDateKey(new Date());
+
+  if (period === "day") {
+    return tasks.filter((t) => t.due_date !== null && t.due_date <= todayKey).sort(byTimeThenPriority);
+  }
+
+  const endKey = localDateKey(addDays(new Date(), period === "week" ? 7 : 30));
+  return tasks.filter((t) => t.due_date === null || t.due_date <= endKey).sort(byDateThenPriority);
 }
