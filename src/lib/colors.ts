@@ -52,3 +52,10 @@ export const GOOGLE_COLOR_ID: Record<ColorName, string> = {
   orange: "6", // Tangerine
   red: "11", // Tomato
 };
+
+// A category's Google Calendar color, independent of priority -- for
+// recoloring a raw calendar event that isn't a task (no priority to
+// consider, unlike resolveColor).
+export function categoryToGoogleColorId(category: Category): string {
+  return GOOGLE_COLOR_ID[CATEGORY_COLOR[category]];
+}

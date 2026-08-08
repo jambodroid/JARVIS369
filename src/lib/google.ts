@@ -265,11 +265,12 @@ export async function upsertTaskEvent(
 // instead of collapsing to some default).
 export async function updateCalendarEvent(
   googleEventId: string,
-  updates: { title?: string; date?: string; time?: string; durationMinutes?: number },
+  updates: { title?: string; date?: string; time?: string; durationMinutes?: number; colorId?: string },
   timeZone: string,
 ): Promise<void> {
   const body: Record<string, unknown> = {};
   if (updates.title) body.summary = updates.title;
+  if (updates.colorId) body.colorId = updates.colorId;
 
   if (updates.date || updates.time) {
     const getRes = await fetchGoogleCalendar(`${CALENDAR_API}/${googleEventId}`);

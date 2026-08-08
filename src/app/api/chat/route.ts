@@ -4,7 +4,7 @@ import type { MessageParam, Tool, ToolResultBlockParam } from "@anthropic-ai/sdk
 import { getCompletedTasks, getOpenTasks, getTaskById, localDateKey, splitTasksByWindow, type Task } from "@/lib/tasks";
 import { completeTask, createTask, deleteTask, rescheduleTask } from "@/lib/taskActions";
 import { deleteCalendarEvent, isGoogleConnected, listWeekEvents, updateCalendarEvent } from "@/lib/google";
-import { CATEGORIES } from "@/lib/colors";
+import { CATEGORIES, categoryToGoogleColorId, type Category } from "@/lib/colors";
 import { computeTotal, getAccountByName, getNetWorthAccounts, updateAccountBalance } from "@/lib/netWorth";
 import {
   createRecurringPayment,
@@ -35,7 +35,7 @@ const TOOLS: Tool[] = [
   {
     name: "update_calendar_event",
     description:
-      "Reschedule or rename any calendar event, including ones not linked to a task (e.g. recurring routine events like 'Gym' or 'Wake up'). Call list_week_events first to find the event's id -- don't guess it. Moving an event preserves its original duration unless you say otherwise.",
+      "Reschedule, rename, or recolor any calendar event, including ones not linked to a task (e.g. recurring routine events like 'Gym' or 'Wake up'). Call list_week_events first to find the event's id -- don't guess it. Moving an event preserves its original duration unless you say otherwise.",
     input_schema: {
       type: "object",
       properties: {
@@ -46,6 +46,11 @@ const TOOLS: Tool[] = [
         duration_minutes: {
           type: "number",
           description: "New duration in minutes. Omit to keep the event's current length.",
+        },
+        category: {
+          type: "string",
+          enum: CATEGORIES,
+          description: "Recolor the event to match this category's color (e.g. 'social' for the Social Media/orange color). Omit to keep the current color.",
         },
       },
       required: ["event_id"],
@@ -298,6 +303,8 @@ function buildSystemPrompt(timeZone: string): string {
 
 When the user gives a time without a date (e.g. "add a meeting at 1am"), use today's date if that time hasn't happened yet today, otherwise use tomorrow's date.
 
+When creating or categorizing a task or calendar event, default anything related to editing, filming, or video/content creation to the "social" category (Social Media) unless the user says otherwise.
+
 Use the tools to look up or change the user's tasks and calendar before answering -- don't guess what's scheduled or already invent task ids. When you take an action (adding, completing, rescheduling a task), briefly confirm what you did in plain language.
 
 Keep replies short and conversational, like a text message -- this is a small chat widget on a phone screen.`;
@@ -343,6 +350,7 @@ async function executeTool(name: string, input: Record<string, unknown>, timeZon
     case "update_calendar_event": {
       const eventId = String(input.event_id ?? "");
       if (!eventId) return { error: "event_id is required" };
+      const category = input.category as Category | undefined;
       await updateCalendarEvent(
         eventId,
         {
@@ -350,6 +358,7 @@ async function executeTool(name: string, input: Record<string, unknown>, timeZon
           date: input.date as string | undefined,
           time: input.time as string | undefined,
           durationMinutes: input.duration_minutes as number | undefined,
+          colorId: category ? categoryToGoogleColorId(category) : undefined,
         },
         timeZone,
       );
