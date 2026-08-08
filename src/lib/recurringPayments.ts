@@ -7,6 +7,7 @@ export type RecurringPayment = {
   day_of_month: number;
   account: string;
   active: boolean;
+  is_debt: boolean;
 };
 
 export async function getRecurringPayments(): Promise<RecurringPayment[]> {
@@ -27,6 +28,7 @@ export async function createRecurringPayment(input: {
   amount: number;
   day_of_month: number;
   account: string;
+  is_debt?: boolean;
 }): Promise<RecurringPayment> {
   const supabase = getSupabaseClient();
   const { data, error } = await supabase.from("recurring_payments").insert(input).select().single();

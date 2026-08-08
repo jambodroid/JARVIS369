@@ -3,7 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import type { MessageParam, Tool, ToolResultBlockParam } from "@anthropic-ai/sdk/resources/messages";
 import { getCompletedTasks, getOpenTasks, getTaskById, localDateKey, splitTasksByWindow, type Task } from "@/lib/tasks";
 import { completeTask, createTask, deleteTask, rescheduleTask } from "@/lib/taskActions";
-import { isGoogleConnected, listWeekEvents } from "@/lib/google";
+import { deleteCalendarEvent, isGoogleConnected, listWeekEvents, updateCalendarEvent } from "@/lib/google";
 import { CATEGORIES } from "@/lib/colors";
 import { computeTotal, getAccountByName, getNetWorthAccounts, updateAccountBalance } from "@/lib/netWorth";
 import {
@@ -31,6 +31,35 @@ const TOOLS: Tool[] = [
     description:
       "List the user's Google Calendar events for the next 7 days. Call this to answer questions about the user's schedule or calendar.",
     input_schema: { type: "object", properties: {}, required: [] },
+  },
+  {
+    name: "update_calendar_event",
+    description:
+      "Reschedule or rename any calendar event, including ones not linked to a task (e.g. recurring routine events like 'Gym' or 'Wake up'). Call list_week_events first to find the event's id -- don't guess it. Moving an event preserves its original duration unless you say otherwise.",
+    input_schema: {
+      type: "object",
+      properties: {
+        event_id: { type: "string", description: "The event's id, from list_week_events." },
+        title: { type: "string", description: "New title. Omit to keep the current one." },
+        date: { type: "string", description: "New date in YYYY-MM-DD. Omit to keep the current date." },
+        time: { type: "string", description: "New 24-hour HH:MM start time in the user's timezone. Omit to keep the current time." },
+        duration_minutes: {
+          type: "number",
+          description: "New duration in minutes. Omit to keep the event's current length.",
+        },
+      },
+      required: ["event_id"],
+    },
+  },
+  {
+    name: "delete_calendar_event",
+    description:
+      "Permanently remove any calendar event, including ones not linked to a task. Call list_week_events first to find the event's id.",
+    input_schema: {
+      type: "object",
+      properties: { event_id: { type: "string", description: "The event's id, from list_week_events." } },
+      required: ["event_id"],
+    },
   },
   {
     name: "add_task",
@@ -131,6 +160,10 @@ const TOOLS: Tool[] = [
           type: "string",
           enum: ["HSBC Current Account", "HSBC Credit Card"],
           description: "Which account it's taken from. Defaults to HSBC Current Account if unsure.",
+        },
+        is_debt: {
+          type: "boolean",
+          description: "Whether this is a debt repayment (loan, car finance) rather than a subscription/bill. Defaults to false.",
         },
       },
       required: ["name", "amount", "day_of_month"],
@@ -271,6 +304,8 @@ Keep replies short and conversational, like a text message -- this is a small ch
 }
 
 const MUTATING_TOOLS = new Set([
+  "update_calendar_event",
+  "delete_calendar_event",
   "add_task",
   "complete_task",
   "delete_task",
@@ -302,8 +337,29 @@ async function executeTool(name: string, input: Record<string, unknown>, timeZon
       const events = await listWeekEvents();
       return {
         connected: true,
-        events: events.map((e) => ({ title: e.title, start: e.start, end: e.end, allDay: e.allDay })),
+        events: events.map((e) => ({ id: e.id, title: e.title, start: e.start, end: e.end, allDay: e.allDay })),
       };
+    }
+    case "update_calendar_event": {
+      const eventId = String(input.event_id ?? "");
+      if (!eventId) return { error: "event_id is required" };
+      await updateCalendarEvent(
+        eventId,
+        {
+          title: input.title as string | undefined,
+          date: input.date as string | undefined,
+          time: input.time as string | undefined,
+          durationMinutes: input.duration_minutes as number | undefined,
+        },
+        timeZone,
+      );
+      return { updated: true };
+    }
+    case "delete_calendar_event": {
+      const eventId = String(input.event_id ?? "");
+      if (!eventId) return { error: "event_id is required" };
+      await deleteCalendarEvent(eventId);
+      return { deleted: true };
     }
     case "add_task": {
       const title = String(input.title ?? "").trim();
@@ -381,10 +437,17 @@ async function executeTool(name: string, input: Record<string, unknown>, timeZon
       const amount = Number(input.amount);
       const dayOfMonth = Number(input.day_of_month);
       const account = (input.account as string | undefined) || "HSBC Current Account";
+      const isDebt = Boolean(input.is_debt);
       if (!name || !Number.isFinite(amount) || !Number.isInteger(dayOfMonth) || dayOfMonth < 1 || dayOfMonth > 31) {
         return { error: "name, a numeric amount, and day_of_month (1-31) are required" };
       }
-      const payment = await createRecurringPayment({ name, amount, day_of_month: dayOfMonth, account });
+      const payment = await createRecurringPayment({
+        name,
+        amount,
+        day_of_month: dayOfMonth,
+        account,
+        is_debt: isDebt,
+      });
       return { payment };
     }
     case "delete_recurring_payment": {

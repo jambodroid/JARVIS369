@@ -56,16 +56,20 @@ function PaymentRow({ payment }: { payment: RecurringPayment }) {
 }
 
 export default function RecurringPaymentsCard({ payments }: { payments: RecurringPayment[] }) {
-  const sorted = [...payments].sort((a, b) => a.day_of_month - b.day_of_month);
-  const monthlyTotal = payments.reduce((sum, p) => sum + p.amount, 0);
+  const [showDebts, setShowDebts] = useState(false);
+
+  const bills = payments.filter((p) => !p.is_debt).sort((a, b) => a.day_of_month - b.day_of_month);
+  const debts = payments.filter((p) => p.is_debt).sort((a, b) => a.day_of_month - b.day_of_month);
+  const monthlyTotal = bills.reduce((sum, p) => sum + p.amount, 0);
+  const debtsTotal = debts.reduce((sum, p) => sum + p.amount, 0);
 
   return (
     <Card title="Direct Debits" count={payments.length}>
-      {sorted.length === 0 ? (
+      {bills.length === 0 ? (
         <p className="text-sm text-ink-3">Nothing tracked yet.</p>
       ) : (
         <ul className="flex flex-col gap-2">
-          {sorted.map((p) => (
+          {bills.map((p) => (
             <PaymentRow key={p.id} payment={p} />
           ))}
         </ul>
@@ -75,6 +79,32 @@ export default function RecurringPaymentsCard({ payments }: { payments: Recurrin
         <span className="text-ink-0">Monthly total</span>
         <span className="font-mono text-accent">{formatMoney(monthlyTotal)}</span>
       </div>
+
+      {debts.length > 0 && (
+        <div className="mt-4 border-t border-border pt-3">
+          <button
+            onClick={() => setShowDebts((v) => !v)}
+            className="flex w-full items-center justify-between text-left"
+          >
+            <span className="text-xs font-semibold uppercase tracking-wider text-ink-2">Debts</span>
+            <span className="text-xs text-ink-3">{showDebts ? "Hide" : `Show Debts (${debts.length})`}</span>
+          </button>
+
+          {showDebts && (
+            <>
+              <ul className="mt-3 flex flex-col gap-2">
+                {debts.map((p) => (
+                  <PaymentRow key={p.id} payment={p} />
+                ))}
+              </ul>
+              <div className="mt-3 flex items-center justify-between border-t border-border pt-2 text-sm font-semibold">
+                <span className="text-ink-0">Debts total</span>
+                <span className="font-mono text-accent">{formatMoney(debtsTotal)}</span>
+              </div>
+            </>
+          )}
+        </div>
+      )}
     </Card>
   );
 }

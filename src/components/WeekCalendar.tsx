@@ -15,7 +15,8 @@ const MIN_BLOCK_MINUTES = 20;
 
 const GOOGLE_COLOR_DOT: Record<string, string> = {
   "3": "bg-cat-purple", // Grape
-  "5": "bg-cat-yellow", // Banana
+  "5": "bg-cat-yellow", // Banana (legacy -- events created before the Social Media recolor)
+  "6": "bg-cat-orange", // Tangerine
   "9": "bg-cat-blue", // Blueberry
   "10": "bg-cat-green", // Basil
   "11": "bg-danger", // Tomato
@@ -24,6 +25,7 @@ const GOOGLE_COLOR_DOT: Record<string, string> = {
 const GOOGLE_COLOR_BLOCK: Record<string, string> = {
   "3": "bg-cat-purple/20 border-cat-purple/50 text-cat-purple",
   "5": "bg-cat-yellow/20 border-cat-yellow/50 text-cat-yellow",
+  "6": "bg-cat-orange/20 border-cat-orange/50 text-cat-orange",
   "9": "bg-cat-blue/20 border-cat-blue/50 text-cat-blue",
   "10": "bg-cat-green/20 border-cat-green/50 text-cat-green",
   "11": "bg-danger/20 border-danger/50 text-danger",
@@ -31,7 +33,8 @@ const GOOGLE_COLOR_BLOCK: Record<string, string> = {
 
 const GOOGLE_COLOR_LABEL: Record<string, string> = {
   "3": "Health",
-  "5": "Social",
+  "5": "Social Media",
+  "6": "Social Media",
   "9": "General",
   "10": "Trading",
   "11": "High priority",

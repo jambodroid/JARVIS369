@@ -1,21 +1,21 @@
 import type { Priority } from "@/lib/tasks";
 
 export type Category = "general" | "trading" | "social" | "health";
-export type ColorName = "blue" | "green" | "yellow" | "purple" | "red";
+export type ColorName = "blue" | "green" | "yellow" | "purple" | "orange" | "red";
 
 export const CATEGORIES: Category[] = ["general", "trading", "social", "health"];
 
 export const CATEGORY_LABEL: Record<Category, string> = {
   general: "General",
   trading: "Trading",
-  social: "Social",
+  social: "Social Media",
   health: "Health",
 };
 
 const CATEGORY_COLOR: Record<Category, ColorName> = {
   general: "blue",
   trading: "green",
-  social: "yellow",
+  social: "orange",
   health: "purple",
 };
 
@@ -30,6 +30,7 @@ export const COLOR_CHIP_CLASS: Record<ColorName, string> = {
   green: "bg-cat-green/15 text-cat-green",
   yellow: "bg-cat-yellow/15 text-cat-yellow",
   purple: "bg-cat-purple/15 text-cat-purple",
+  orange: "bg-cat-orange/15 text-cat-orange",
   red: "bg-danger/15 text-danger",
 };
 
@@ -38,6 +39,7 @@ export const COLOR_DOT_CLASS: Record<ColorName, string> = {
   green: "bg-cat-green",
   yellow: "bg-cat-yellow",
   purple: "bg-cat-purple",
+  orange: "bg-cat-orange",
   red: "bg-danger",
 };
 
@@ -47,5 +49,6 @@ export const GOOGLE_COLOR_ID: Record<ColorName, string> = {
   green: "10", // Basil
   yellow: "5", // Banana
   purple: "3", // Grape
+  orange: "6", // Tangerine
   red: "11", // Tomato
 };

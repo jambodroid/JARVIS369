@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { browserSupportsWebAuthn, startRegistration, type RegistrationResponseJSON } from "@simplewebauthn/browser";
 import type { Task } from "@/lib/tasks";
 import type { CalendarEvent } from "@/lib/google";
 import type { NetWorthAccount, NetWorthSnapshot } from "@/lib/netWorth";
@@ -91,11 +92,41 @@ export default function TaskBoard({
   healthEntries: HealthEntry[];
 }) {
   const router = useRouter();
+  const [passkeyStatus, setPasskeyStatus] = useState<string | null>(null);
+  const [webauthnSupported, setWebauthnSupported] = useState(false);
+
+  useEffect(() => {
+    setWebauthnSupported(browserSupportsWebAuthn());
+  }, []);
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
     router.replace("/login");
     router.refresh();
+  }
+
+  async function handleAddPasskey() {
+    setPasskeyStatus(null);
+    const optionsRes = await fetch("/api/auth/passkey/register-options", { method: "POST" });
+    if (!optionsRes.ok) {
+      setPasskeyStatus("Couldn't start Face ID setup.");
+      return;
+    }
+    const options = await optionsRes.json();
+
+    let attestation: RegistrationResponseJSON;
+    try {
+      attestation = await startRegistration({ optionsJSON: options });
+    } catch {
+      return; // cancelled
+    }
+
+    const verifyRes = await fetch("/api/auth/passkey/register-verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(attestation),
+    });
+    setPasskeyStatus(verifyRes.ok ? "Face ID added." : "Couldn't verify Face ID.");
   }
 
   const financesPreview = (
@@ -154,13 +185,28 @@ export default function TaskBoard({
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent shadow-[0_0_8px_2px_var(--accent)]" />
             Tasks
           </h1>
-          <button
-            onClick={handleLogout}
-            className="text-xs font-medium text-ink-3 transition-colors hover:text-ink-1"
-          >
-            Log out
-          </button>
+          <div className="flex items-center gap-3">
+            {webauthnSupported && (
+              <button
+                onClick={handleAddPasskey}
+                className="text-xs font-medium text-ink-3 transition-colors hover:text-ink-1"
+              >
+                Add Face ID
+              </button>
+            )}
+            <button
+              onClick={handleLogout}
+              className="text-xs font-medium text-ink-3 transition-colors hover:text-ink-1"
+            >
+              Log out
+            </button>
+          </div>
         </div>
+        {passkeyStatus && (
+          <div className="mx-auto max-w-lg pt-1">
+            <p className="text-xs text-ink-3">{passkeyStatus}</p>
+          </div>
+        )}
       </header>
 
       <main className="mx-auto flex max-w-lg flex-col gap-4 px-4 py-5 sm:px-6">

@@ -259,6 +259,50 @@ export async function upsertTaskEvent(
   return json.id;
 }
 
+// Updates any calendar event by id, task-linked or not. If date/time is
+// given without an explicit duration, fetches the current event first to
+// preserve its existing length (so "move Gym to 4pm" stays an hour long
+// instead of collapsing to some default).
+export async function updateCalendarEvent(
+  googleEventId: string,
+  updates: { title?: string; date?: string; time?: string; durationMinutes?: number },
+  timeZone: string,
+): Promise<void> {
+  const body: Record<string, unknown> = {};
+  if (updates.title) body.summary = updates.title;
+
+  if (updates.date || updates.time) {
+    const getRes = await fetchGoogleCalendar(`${CALENDAR_API}/${googleEventId}`);
+    if (!getRes.ok) throw new Error(`Google Calendar event fetch failed: ${await getRes.text()}`);
+    const current = (await getRes.json()) as {
+      start: { date?: string; dateTime?: string };
+      end: { date?: string; dateTime?: string };
+    };
+
+    const currentStart = current.start.dateTime ?? `${current.start.date}T00:00:00`;
+    const currentEnd = current.end.dateTime ?? `${current.end.date}T00:00:00`;
+    const currentDurationMinutes = Math.round(
+      (new Date(currentEnd).getTime() - new Date(currentStart).getTime()) / 60_000,
+    );
+
+    const [currentDate, currentTimePart] = currentStart.split("T");
+    const newDate = updates.date ?? currentDate;
+    const newTime = updates.time ? `${updates.time}:00` : currentTimePart.slice(0, 8);
+    const newStart = `${newDate}T${newTime}`;
+    const newEnd = addMinutes(newStart, updates.durationMinutes ?? currentDurationMinutes);
+
+    body.start = { dateTime: newStart, timeZone };
+    body.end = { dateTime: newEnd, timeZone };
+  }
+
+  const res = await fetchGoogleCalendar(`${CALENDAR_API}/${googleEventId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`Google Calendar event update failed: ${await res.text()}`);
+}
+
 export async function deleteCalendarEvent(googleEventId: string): Promise<void> {
   const res = await fetchGoogleCalendar(`${CALENDAR_API}/${googleEventId}`, { method: "DELETE" });
   // 404/410 means it's already gone from Google's side -- treat as success.

@@ -20,11 +20,12 @@
   --warn: oklch(0.82 0.15 85);
   --danger: oklch(0.68 0.2 25);
 
-  /* Category colors: general/trading/social/health, plus red for high priority */
+  /* Category colors: general/trading/social media/health, plus red for high priority */
   --cat-blue: oklch(0.82 0.15 195);
   --cat-green: oklch(0.78 0.16 155);
   --cat-yellow: oklch(0.82 0.15 85);
   --cat-purple: oklch(0.72 0.17 310);
+  --cat-orange: oklch(0.78 0.17 55);
 }
 
 @theme inline {
@@ -45,6 +46,7 @@
   --color-cat-green: var(--cat-green);
   --color-cat-yellow: var(--cat-yellow);
   --color-cat-purple: var(--cat-purple);
+  --color-cat-orange: var(--cat-orange);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
