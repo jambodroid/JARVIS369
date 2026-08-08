@@ -130,17 +130,33 @@ function layoutDayEvents(events: CalendarEvent[]): PositionedEvent[] {
 }
 
 export default function WeekCalendar({ events }: { events: CalendarEvent[] }) {
-  const days = Array.from({ length: 7 }, (_, i) => localDateKey(addDays(new Date(), i)));
-  const hours = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i);
   const todayKey = localDateKey(new Date());
+  const [viewMode, setViewMode] = useState<"today" | "week">("today");
+  const isWeek = viewMode === "week";
+  const days = isWeek ? Array.from({ length: 7 }, (_, i) => localDateKey(addDays(new Date(), i))) : [todayKey];
+  const hours = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const selectedEvent = events.find((e) => e.id === selectedId) ?? null;
 
   return (
     <Card title="Calendar">
-      <div className="overflow-x-auto">
-        <div className="flex" style={{ width: GUTTER_WIDTH + days.length * DAY_COL_WIDTH }}>
+      <div className="mb-3 flex justify-end gap-1">
+        {(["today", "week"] as const).map((mode) => (
+          <button
+            key={mode}
+            onClick={() => setViewMode(mode)}
+            className={`rounded-full border px-2.5 py-0.5 font-mono text-xs uppercase tracking-wide transition-colors ${
+              viewMode === mode ? "border-accent/60 bg-accent/15 text-accent" : "border-border text-ink-3 hover:text-ink-1"
+            }`}
+          >
+            {mode === "today" ? "Today" : "This Week"}
+          </button>
+        ))}
+      </div>
+
+      <div className={isWeek ? "overflow-x-auto" : ""}>
+        <div className="flex" style={isWeek ? { width: GUTTER_WIDTH + days.length * DAY_COL_WIDTH } : undefined}>
           <div
             className="sticky left-0 z-10 shrink-0 bg-surface"
             style={{ width: GUTTER_WIDTH }}
@@ -164,7 +180,11 @@ export default function WeekCalendar({ events }: { events: CalendarEvent[] }) {
             const isToday = day === todayKey;
 
             return (
-              <div key={day} className="shrink-0 border-l border-border/40" style={{ width: DAY_COL_WIDTH }}>
+              <div
+                key={day}
+                className={`border-l border-border/40 ${isWeek ? "shrink-0" : "flex-1"}`}
+                style={isWeek ? { width: DAY_COL_WIDTH } : undefined}
+              >
                 <div
                   className={`flex flex-col items-center justify-center text-[10px] font-medium ${
                     isToday ? "text-accent" : "text-ink-2"

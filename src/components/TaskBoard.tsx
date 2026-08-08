@@ -7,8 +7,10 @@ import type { CalendarEvent } from "@/lib/google";
 import type { NetWorthAccount, NetWorthSnapshot } from "@/lib/netWorth";
 import type { RecurringPayment } from "@/lib/recurringPayments";
 import type { JournalEntry } from "@/lib/tradingJournal";
+import type { SelfEntry } from "@/lib/selfEntries";
 import TaskRow from "@/components/TaskRow";
 import Card from "@/components/Card";
+import CollapsibleSection from "@/components/CollapsibleSection";
 import WeekCalendar from "@/components/WeekCalendar";
 import ConnectGoogleCalendar from "@/components/ConnectGoogleCalendar";
 import JarvisPanel from "@/components/JarvisPanel";
@@ -16,6 +18,8 @@ import NetWorthCard from "@/components/NetWorthCard";
 import TradingCard from "@/components/TradingCard";
 import TradingJournalCard from "@/components/TradingJournalCard";
 import RecurringPaymentsCard from "@/components/RecurringPaymentsCard";
+import HealthCard from "@/components/HealthCard";
+import SelfCard from "@/components/SelfCard";
 
 function Section({ title, tasks }: { title: string; tasks: Task[] }) {
   return (
@@ -74,6 +78,7 @@ export default function TaskBoard({
   tradingAccount,
   recurringPayments,
   journalEntries,
+  selfEntries,
 }: {
   today: Task[];
   week: Task[];
@@ -86,6 +91,7 @@ export default function TaskBoard({
   tradingAccount: NetWorthAccount | null;
   recurringPayments: RecurringPayment[];
   journalEntries: JournalEntry[];
+  selfEntries: SelfEntry[];
 }) {
   const router = useRouter();
 
@@ -114,18 +120,35 @@ export default function TaskBoard({
 
       <main className="mx-auto flex max-w-lg flex-col gap-4 px-4 py-5 sm:px-6">
         <JarvisPanel />
-        <Section title="Today" tasks={today} />
-        <Section title="This Week" tasks={week} />
-        <CompletedSection tasks={completed} />
-        {googleConnected ? (
-          <WeekCalendar events={events} />
-        ) : (
-          <ConnectGoogleCalendar error={googleError} />
-        )}
-        <NetWorthCard accounts={netWorthAccounts} snapshots={netWorthSnapshots} />
-        <TradingCard account={tradingAccount} snapshots={netWorthSnapshots} />
-        <TradingJournalCard entries={journalEntries} />
-        <RecurringPaymentsCard payments={recurringPayments} />
+
+        <CollapsibleSection title="Today" defaultOpen>
+          <Section title="Today" tasks={today} />
+          <Section title="This Week" tasks={week} />
+          <CompletedSection tasks={completed} />
+          {googleConnected ? (
+            <WeekCalendar events={events} />
+          ) : (
+            <ConnectGoogleCalendar error={googleError} />
+          )}
+        </CollapsibleSection>
+
+        <CollapsibleSection title="Finances">
+          <NetWorthCard accounts={netWorthAccounts} snapshots={netWorthSnapshots} />
+          <RecurringPaymentsCard payments={recurringPayments} />
+        </CollapsibleSection>
+
+        <CollapsibleSection title="Trading">
+          <TradingCard account={tradingAccount} snapshots={netWorthSnapshots} />
+          <TradingJournalCard entries={journalEntries} />
+        </CollapsibleSection>
+
+        <CollapsibleSection title="Health">
+          <HealthCard />
+        </CollapsibleSection>
+
+        <CollapsibleSection title="Self">
+          <SelfCard entries={selfEntries} />
+        </CollapsibleSection>
       </main>
     </div>
   );

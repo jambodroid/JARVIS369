@@ -13,6 +13,7 @@ import {
   isDueThisWeek,
 } from "@/lib/recurringPayments";
 import { getJournalEntries, upsertJournalEntry } from "@/lib/tradingJournal";
+import { createSelfEntry, getSelfEntries, type EntryType } from "@/lib/selfEntries";
 
 const MODEL = "claude-opus-5";
 const MAX_ITERATIONS = 6;
@@ -170,6 +171,39 @@ const TOOLS: Tool[] = [
       "List recent trading journal entries (date, traded, pnl, summary). Call this to answer questions about past trading days or to synthesize a weekly/monthly recap.",
     input_schema: { type: "object", properties: {}, required: [] },
   },
+  {
+    name: "add_self_entry",
+    description:
+      "Log a personal entry in the Self section -- a journal/reflection note, a goal, a habit, or an idea. Use whenever the user tells you something that fits one of these, even in passing conversation.",
+    input_schema: {
+      type: "object",
+      properties: {
+        entry_type: {
+          type: "string",
+          enum: ["journal", "goal", "habit", "idea"],
+          description: "Which kind of entry this is.",
+        },
+        content: { type: "string", description: "The entry text, in the user's own words where possible." },
+      },
+      required: ["entry_type", "content"],
+    },
+  },
+  {
+    name: "list_self_entries",
+    description:
+      "List recent Self entries (journal, goals, habits, ideas). Call this to answer questions about past entries or recall something the user logged before.",
+    input_schema: {
+      type: "object",
+      properties: {
+        entry_type: {
+          type: "string",
+          enum: ["journal", "goal", "habit", "idea"],
+          description: "Only return entries of this type. Omit to return all types.",
+        },
+      },
+      required: [],
+    },
+  },
 ];
 
 function summarizeTask(task: Task) {
@@ -211,6 +245,7 @@ const MUTATING_TOOLS = new Set([
   "add_recurring_payment",
   "delete_recurring_payment",
   "log_trading_journal_entry",
+  "add_self_entry",
 ]);
 
 async function executeTool(name: string, input: Record<string, unknown>, timeZone: string): Promise<unknown> {
@@ -344,6 +379,19 @@ async function executeTool(name: string, input: Record<string, unknown>, timeZon
     case "list_trading_journal_entries": {
       const entries = await getJournalEntries(30);
       return { entries };
+    }
+    case "add_self_entry": {
+      const entryType = input.entry_type as EntryType | undefined;
+      const content = String(input.content ?? "").trim();
+      if (!entryType) return { error: "entry_type is required" };
+      if (!content) return { error: "content is required" };
+      const entry = await createSelfEntry({ entry_type: entryType, content });
+      return { entry };
+    }
+    case "list_self_entries": {
+      const entryType = input.entry_type as EntryType | undefined;
+      const entries = await getSelfEntries(50);
+      return { entries: entryType ? entries.filter((e) => e.entry_type === entryType) : entries };
     }
     default:
       return { error: `Unknown tool ${name}` };

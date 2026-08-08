@@ -3,6 +3,7 @@ import { isGoogleConnected, listWeekEvents } from "@/lib/google";
 import { getAccountByName, getNetWorthAccounts, getNetWorthSnapshots } from "@/lib/netWorth";
 import { getRecurringPayments } from "@/lib/recurringPayments";
 import { getJournalEntries } from "@/lib/tradingJournal";
+import { getSelfEntries } from "@/lib/selfEntries";
 import TaskBoard from "@/components/TaskBoard";
 
 export const dynamic = "force-dynamic";
@@ -14,16 +15,25 @@ export default async function HomePage({
 }) {
   const { google_error } = await searchParams;
 
-  const [openTasks, completed, googleConnected, netWorthAccounts, netWorthSnapshots, recurringPayments, journalEntries] =
-    await Promise.all([
-      getOpenTasks(),
-      getCompletedTasks(),
-      isGoogleConnected(),
-      getNetWorthAccounts(),
-      getNetWorthSnapshots(),
-      getRecurringPayments(),
-      getJournalEntries(),
-    ]);
+  const [
+    openTasks,
+    completed,
+    googleConnected,
+    netWorthAccounts,
+    netWorthSnapshots,
+    recurringPayments,
+    journalEntries,
+    selfEntries,
+  ] = await Promise.all([
+    getOpenTasks(),
+    getCompletedTasks(),
+    isGoogleConnected(),
+    getNetWorthAccounts(),
+    getNetWorthSnapshots(),
+    getRecurringPayments(),
+    getJournalEntries(),
+    getSelfEntries(),
+  ]);
   const { today, week } = splitTasksByWindow(openTasks);
   const events = googleConnected ? await listWeekEvents() : [];
   const tradingAccount = await getAccountByName("AMP Trading");
@@ -41,6 +51,7 @@ export default async function HomePage({
       tradingAccount={tradingAccount}
       recurringPayments={recurringPayments}
       journalEntries={journalEntries}
+      selfEntries={selfEntries}
     />
   );
 }
