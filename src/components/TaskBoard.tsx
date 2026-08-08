@@ -11,6 +11,7 @@ import { getTodayEntry, type JournalEntry } from "@/lib/tradingJournal";
 import { getTodayEntries as getTodaySelfEntries, type SelfEntry } from "@/lib/selfEntries";
 import { getTodayEntries as getTodayHealthEntries, type HealthEntry, type HealthEntryType } from "@/lib/healthEntries";
 import type { HealthMetricsDay } from "@/lib/healthMetrics";
+import { getPipelineSummary, type ContentItem } from "@/lib/socialBusiness";
 import TaskRow from "@/components/TaskRow";
 import Card from "@/components/Card";
 import CollapsibleSection from "@/components/CollapsibleSection";
@@ -24,6 +25,7 @@ import TradingJournalCard from "@/components/TradingJournalCard";
 import RecurringPaymentsCard from "@/components/RecurringPaymentsCard";
 import HealthCard from "@/components/HealthCard";
 import SelfCard from "@/components/SelfCard";
+import SocialBusinessCard from "@/components/SocialBusinessCard";
 import TrendChart from "@/components/TrendChart";
 
 function formatMoney(n: number) {
@@ -79,6 +81,7 @@ export default function TaskBoard({
   selfEntries,
   healthEntries,
   healthMetrics,
+  contentItems,
 }: {
   openTasks: Task[];
   completed: Task[];
@@ -93,6 +96,7 @@ export default function TaskBoard({
   selfEntries: SelfEntry[];
   healthEntries: HealthEntry[];
   healthMetrics: HealthMetricsDay[];
+  contentItems: ContentItem[];
 }) {
   const router = useRouter();
   const [passkeyStatus, setPasskeyStatus] = useState<string | null>(null);
@@ -185,6 +189,13 @@ export default function TaskBoard({
     <p className="text-xs text-ink-3">Nothing logged today yet.</p>
   );
 
+  const pipelineSummary = getPipelineSummary(contentItems);
+  const businessPreview = pipelineSummary ? (
+    <p className="truncate text-xs text-ink-2">{pipelineSummary}</p>
+  ) : (
+    <p className="text-xs text-ink-3">Nothing in the pipeline yet.</p>
+  );
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-accent/20 px-4 py-3 sm:px-6">
@@ -246,6 +257,10 @@ export default function TaskBoard({
 
         <CollapsibleSection title="Self" preview={selfPreview}>
           <SelfCard entries={selfEntries} />
+        </CollapsibleSection>
+
+        <CollapsibleSection title="Business" preview={businessPreview}>
+          <SocialBusinessCard items={contentItems} />
         </CollapsibleSection>
       </main>
     </div>

@@ -15,6 +15,13 @@ import {
 import { getJournalEntries, upsertJournalEntry } from "@/lib/tradingJournal";
 import { createSelfEntry, getSelfEntries, type EntryType } from "@/lib/selfEntries";
 import { createHealthEntry, getHealthEntries, type HealthEntryType } from "@/lib/healthEntries";
+import {
+  createContentItem,
+  getClients,
+  getContentItems,
+  updateContentItemStatus,
+  type ContentStatus,
+} from "@/lib/socialBusiness";
 import { estimateNutrition } from "@/lib/nutrition";
 
 const MODEL = "claude-opus-5";
@@ -277,6 +284,62 @@ const TOOLS: Tool[] = [
       required: [],
     },
   },
+  {
+    name: "add_content_item",
+    description:
+      "Log a new piece of social media content for the business pipeline (a video, post, etc.), optionally tied to a client. Use when the user mentions scripting, filming, editing, or posting something for a client or their own channels. The client doesn't need to already exist -- it's created automatically if new.",
+    input_schema: {
+      type: "object",
+      properties: {
+        title: { type: "string", description: "What the content is, e.g. 'RK Tyres brake pad demo'." },
+        client_name: {
+          type: "string",
+          description: "The client this is for, e.g. 'RK Tyres'. Omit for the user's own personal content.",
+        },
+        status: {
+          type: "string",
+          enum: ["idea", "scripted", "filmed", "edited", "posted"],
+          description: "Where it is in the pipeline right now. Defaults to 'idea' if unclear.",
+        },
+        platform: { type: "string", description: "e.g. 'TikTok', 'Instagram'. Omit if not mentioned." },
+      },
+      required: ["title"],
+    },
+  },
+  {
+    name: "update_content_item_status",
+    description:
+      "Move a content item forward (or back) through the pipeline: idea -> scripted -> filmed -> edited -> posted. Call list_content_items first to find the item's id.",
+    input_schema: {
+      type: "object",
+      properties: {
+        content_item_id: { type: "string", description: "The content item's id, from list_content_items." },
+        status: { type: "string", enum: ["idea", "scripted", "filmed", "edited", "posted"] },
+      },
+      required: ["content_item_id", "status"],
+    },
+  },
+  {
+    name: "list_content_items",
+    description: "List content items in the business pipeline. Call this to find an item's id or answer questions about what's in progress.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_name: { type: "string", description: "Only return items for this client. Omit for all." },
+        status: {
+          type: "string",
+          enum: ["idea", "scripted", "filmed", "edited", "posted"],
+          description: "Only return items at this stage. Omit for all.",
+        },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "list_clients",
+    description: "List the business's clients. Call this to answer 'which clients do I have' or to match a name the user said against a real one.",
+    input_schema: { type: "object", properties: {}, required: [] },
+  },
 ];
 
 function summarizeTask(task: Task) {
@@ -326,6 +389,8 @@ const MUTATING_TOOLS = new Set([
   "log_trading_journal_entry",
   "add_self_entry",
   "add_health_entry",
+  "add_content_item",
+  "update_content_item_status",
 ]);
 
 async function executeTool(name: string, input: Record<string, unknown>, timeZone: string): Promise<unknown> {
@@ -533,6 +598,37 @@ async function executeTool(name: string, input: Record<string, unknown>, timeZon
       const entryType = input.entry_type as HealthEntryType | undefined;
       const entries = await getHealthEntries(50);
       return { entries: entryType ? entries.filter((e) => e.entry_type === entryType) : entries };
+    }
+    case "add_content_item": {
+      const title = String(input.title ?? "").trim();
+      if (!title) return { error: "title is required" };
+      const item = await createContentItem({
+        title,
+        client_name: input.client_name as string | undefined,
+        status: input.status as ContentStatus | undefined,
+        platform: input.platform as string | undefined,
+      });
+      return { item };
+    }
+    case "update_content_item_status": {
+      const itemId = String(input.content_item_id ?? "");
+      const status = input.status as ContentStatus | undefined;
+      if (!itemId) return { error: "content_item_id is required" };
+      if (!status) return { error: "status is required" };
+      const item = await updateContentItemStatus(itemId, status);
+      return { item };
+    }
+    case "list_content_items": {
+      const clientName = input.client_name as string | undefined;
+      const status = input.status as ContentStatus | undefined;
+      let items = await getContentItems(100);
+      if (clientName) items = items.filter((i) => i.client_name === clientName);
+      if (status) items = items.filter((i) => i.status === status);
+      return { items };
+    }
+    case "list_clients": {
+      const clients = await getClients();
+      return { clients };
     }
     default:
       return { error: `Unknown tool ${name}` };
