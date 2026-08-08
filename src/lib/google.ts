@@ -272,6 +272,9 @@ export async function updateCalendarEvent(
   if (updates.title) body.summary = updates.title;
   if (updates.colorId) body.colorId = updates.colorId;
 
+  let targetId = googleEventId;
+  const isPureRecolor = updates.colorId !== undefined && !updates.title && !updates.date && !updates.time;
+
   if (updates.date || updates.time) {
     const getRes = await fetchGoogleCalendar(`${CALENDAR_API}/${googleEventId}`);
     if (!getRes.ok) throw new Error(`Google Calendar event fetch failed: ${await getRes.text()}`);
@@ -294,9 +297,22 @@ export async function updateCalendarEvent(
 
     body.start = { dateTime: newStart, timeZone };
     body.end = { dateTime: newEnd, timeZone };
+  } else if (isPureRecolor) {
+    // Recoloring a recurring event (e.g. tagging a daily routine's category)
+    // means the whole series, not just today's occurrence -- resolve to the
+    // master event and PATCH that instead of the single instance. If the
+    // lookup fails for any reason, fall through and recolor just the
+    // instance rather than losing the update entirely.
+    const getRes = await fetchGoogleCalendar(`${CALENDAR_API}/${googleEventId}`);
+    if (getRes.ok) {
+      const current = (await getRes.json()) as { recurringEventId?: string };
+      if (current.recurringEventId) {
+        targetId = current.recurringEventId;
+      }
+    }
   }
 
-  const res = await fetchGoogleCalendar(`${CALENDAR_API}/${googleEventId}`, {
+  const res = await fetchGoogleCalendar(`${CALENDAR_API}/${targetId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),

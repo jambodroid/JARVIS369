@@ -36,7 +36,7 @@ const TOOLS: Tool[] = [
   {
     name: "update_calendar_event",
     description:
-      "Reschedule, rename, or recolor any calendar event, including ones not linked to a task (e.g. recurring routine events like 'Gym' or 'Wake up'). Call list_week_events first to find the event's id -- don't guess it. Moving an event preserves its original duration unless you say otherwise.",
+      "Reschedule, rename, or recolor any calendar event, including ones not linked to a task (e.g. recurring routine events like 'Gym' or 'Wake up'). Call list_week_events first to find the event's id -- don't guess it. Moving an event preserves its original duration unless you say otherwise. Recoloring a recurring event (category only, no date/time change) applies to the whole series going forward, not just that one occurrence.",
     input_schema: {
       type: "object",
       properties: {
