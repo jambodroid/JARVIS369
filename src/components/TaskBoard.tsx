@@ -12,6 +12,7 @@ import { getTodayEntries as getTodaySelfEntries, type SelfEntry } from "@/lib/se
 import { getTodayEntries as getTodayHealthEntries, type HealthEntry, type HealthEntryType } from "@/lib/healthEntries";
 import type { HealthMetricsDay } from "@/lib/healthMetrics";
 import type { HealthPlanKind } from "@/lib/healthPlans";
+import type { GymSession } from "@/lib/gymTracker";
 import { getPipelineSummary, type ContentItem } from "@/lib/socialBusiness";
 import TaskRow from "@/components/TaskRow";
 import Card from "@/components/Card";
@@ -27,6 +28,7 @@ import RecurringPaymentsCard from "@/components/RecurringPaymentsCard";
 import HealthCard from "@/components/HealthCard";
 import SelfCard from "@/components/SelfCard";
 import SocialBusinessCard from "@/components/SocialBusinessCard";
+import GymTrackerCard from "@/components/GymTrackerCard";
 import TrendChart from "@/components/TrendChart";
 
 function formatMoney(n: number) {
@@ -83,6 +85,7 @@ export default function TaskBoard({
   healthEntries,
   healthMetrics,
   healthPlans,
+  gymSessions,
   contentItems,
 }: {
   openTasks: Task[];
@@ -99,6 +102,7 @@ export default function TaskBoard({
   healthEntries: HealthEntry[];
   healthMetrics: HealthMetricsDay[];
   healthPlans: Record<HealthPlanKind, string | null>;
+  gymSessions: GymSession[];
   contentItems: ContentItem[];
 }) {
   const router = useRouter();
@@ -192,6 +196,15 @@ export default function TaskBoard({
     <p className="text-xs text-ink-3">Nothing logged today yet.</p>
   );
 
+  const todayGymSession = gymSessions.find((s) => s.session_date === todayDateKey) ?? null;
+  const gymPreview = todayGymSession ? (
+    <p className="truncate text-xs text-ink-2">
+      {todayGymSession.attended ? "Went" : "Skipped"} &middot; {todayGymSession.day_label}
+    </p>
+  ) : (
+    <p className="text-xs text-ink-3">Nothing logged today yet.</p>
+  );
+
   const pipelineSummary = getPipelineSummary(contentItems);
   const businessPreview = pipelineSummary ? (
     <p className="truncate text-xs text-ink-2">{pipelineSummary}</p>
@@ -261,6 +274,10 @@ export default function TaskBoard({
 
           <CollapsibleSection title="Health" preview={healthPreview}>
             <HealthCard entries={healthEntries} metrics={healthMetrics} plans={healthPlans} />
+          </CollapsibleSection>
+
+          <CollapsibleSection title="Gym Tracker" preview={gymPreview}>
+            <GymTrackerCard sessions={gymSessions} />
           </CollapsibleSection>
 
           <CollapsibleSection title="Self" preview={selfPreview}>

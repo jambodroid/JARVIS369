@@ -25,6 +25,7 @@ import {
 } from "@/lib/socialBusiness";
 import { estimateNutrition } from "@/lib/nutrition";
 import { getHealthPlans, setHealthPlan, type HealthPlanKind } from "@/lib/healthPlans";
+import { getGymSessions, logGymSession } from "@/lib/gymTracker";
 
 const MODEL = "claude-opus-5";
 const MAX_ITERATIONS = 6;
@@ -321,6 +322,44 @@ const TOOLS: Tool[] = [
     input_schema: { type: "object", properties: {}, required: [] },
   },
   {
+    name: "log_gym_session",
+    description:
+      "Log whether the user went to or skipped a gym/training session for a day, and what they did -- which exercises, sets, reps, and weight used. Use whenever the user reports on a workout (\"did back today\", \"skipped gym\", \"did 3 sets of 10 at 20kg on lat rows\"). Re-logging the same date replaces that day's entry, so correcting a mistake is just logging it again. Weight is in kg; leave it out for bodyweight exercises (pull-ups, muscle-ups) unless they added extra weight.",
+    input_schema: {
+      type: "object",
+      properties: {
+        session_date: { type: "string", description: "Date in YYYY-MM-DD. Defaults to today if omitted." },
+        day_label: {
+          type: "string",
+          description: "What kind of session this was, matching their plan's vocabulary, e.g. \"Back\", \"Chest\", \"Legs\", \"Gymnastics\", \"Hike\", \"Yoga\".",
+        },
+        attended: { type: "boolean", description: "Whether they actually went/did it, as opposed to skipping." },
+        notes: { type: "string", description: "Any free-text note about the session -- how it felt, PRs, etc." },
+        exercises: {
+          type: "array",
+          description: "The exercises done this session, if any (omit or leave empty on a skipped day).",
+          items: {
+            type: "object",
+            properties: {
+              exercise_name: { type: "string", description: "e.g. \"Wide grip pull ups\", \"Incline bench\"." },
+              sets: { type: "number" },
+              reps: { type: "number", description: "Reps per set. If it varied, use the heaviest/working set's reps." },
+              weight_kg: { type: "number", description: "Weight used in kg. Omit for unweighted bodyweight exercises." },
+            },
+            required: ["exercise_name"],
+          },
+        },
+      },
+      required: ["day_label", "attended"],
+    },
+  },
+  {
+    name: "list_gym_sessions",
+    description:
+      "List recent gym sessions with their exercises, sets/reps/weight, and any Apple Watch workout data recorded that day (duration, calories). Use to answer questions about training history or progress on a specific exercise.",
+    input_schema: { type: "object", properties: {}, required: [] },
+  },
+  {
     name: "add_content_item",
     description:
       "Log a new piece of social media content for the business pipeline (a video, post, etc.), optionally tied to a client. Use when the user mentions scripting, filming, editing, or posting something for a client or their own channels. The client doesn't need to already exist -- it's created automatically if new.",
@@ -444,6 +483,7 @@ const MUTATING_TOOLS = new Set([
   "add_self_entry",
   "add_health_entry",
   "set_health_plan",
+  "log_gym_session",
   "add_content_item",
   "update_content_item_status",
   "set_content_item_due_date",
@@ -674,6 +714,35 @@ async function executeTool(name: string, input: Record<string, unknown>, timeZon
     case "get_health_plans": {
       const plans = await getHealthPlans();
       return { plans };
+    }
+    case "log_gym_session": {
+      const dayLabel = String(input.day_label ?? "").trim();
+      if (!dayLabel) return { error: "day_label is required" };
+      if (typeof input.attended !== "boolean") return { error: "attended is required" };
+
+      const rawExercises = Array.isArray(input.exercises) ? input.exercises : [];
+      const exercises = rawExercises.map((e) => {
+        const exercise = e as Record<string, unknown>;
+        return {
+          exercise_name: String(exercise.exercise_name ?? "").trim(),
+          sets: exercise.sets !== undefined ? Number(exercise.sets) : undefined,
+          reps: exercise.reps !== undefined ? Number(exercise.reps) : undefined,
+          weight_kg: exercise.weight_kg !== undefined ? Number(exercise.weight_kg) : undefined,
+        };
+      });
+
+      const session = await logGymSession({
+        session_date: (input.session_date as string | undefined) || localDateKey(new Date()),
+        day_label: dayLabel,
+        attended: input.attended,
+        notes: input.notes as string | undefined,
+        exercises,
+      });
+      return { session };
+    }
+    case "list_gym_sessions": {
+      const sessions = await getGymSessions(30);
+      return { sessions };
     }
     case "add_content_item": {
       const title = String(input.title ?? "").trim();

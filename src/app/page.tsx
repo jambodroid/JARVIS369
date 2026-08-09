@@ -7,6 +7,7 @@ import { getSelfEntries } from "@/lib/selfEntries";
 import { getHealthEntries } from "@/lib/healthEntries";
 import { getHealthMetrics } from "@/lib/healthMetrics";
 import { getHealthPlans } from "@/lib/healthPlans";
+import { getGymSessions } from "@/lib/gymTracker";
 import { getContentItems } from "@/lib/socialBusiness";
 import TaskBoard from "@/components/TaskBoard";
 
@@ -31,6 +32,7 @@ export default async function HomePage({
     healthEntries,
     healthMetrics,
     healthPlans,
+    gymSessions,
     contentItems,
   ] = await Promise.all([
     getOpenTasks(),
@@ -44,6 +46,7 @@ export default async function HomePage({
     getHealthEntries(),
     getHealthMetrics(),
     getHealthPlans(),
+    getGymSessions(),
     getContentItems(),
   ]);
   const events = googleConnected ? await listWeekEvents() : [];
@@ -65,6 +68,7 @@ export default async function HomePage({
       healthEntries={healthEntries}
       healthMetrics={healthMetrics}
       healthPlans={healthPlans}
+      gymSessions={gymSessions}
       contentItems={contentItems}
     />
   );
