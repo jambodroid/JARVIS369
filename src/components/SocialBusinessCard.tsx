@@ -4,12 +4,23 @@ import { useState } from "react";
 import type { ContentItem, ContentStatus } from "@/lib/socialBusiness";
 import Card from "@/components/Card";
 
-// The first four accounts already post together daily (the existing
-// "Post RS + Platinum/RK" calendar event) -- bundled into one "Personal"
-// tab rather than four separate ones. One-line adjustment point if this
-// grouping assumption is wrong; not a schema decision.
-const PERSONAL_BUNDLE = ["Jambo369", "RS Cars", "RK Tyres", "Platinum Tan"];
-const PERSONAL_TAB = "Personal";
+// Fixed tab order per the user's actual client list. Platinum Tan + RK
+// Tyres already post together (matches the "Post RS + Platinum/RK"
+// calendar event), so they share one tab; everything else gets its own.
+// Jambo369 is the personal page, so client-less items land there too.
+type TabGroup = { label: string; clientNames: string[]; includeNullClient?: boolean };
+// Client names include both historical variants Jarvis has actually
+// created (e.g. "RS Cars" vs "RS Energy", "Platinum Tan" vs "Platinum
+// Tans") so grouping stays correct regardless of which exact name a
+// given content item was logged under.
+const TAB_GROUPS: TabGroup[] = [
+  { label: "Jambo369", clientNames: ["Jambo369"], includeNullClient: true },
+  { label: "Platinum/RK", clientNames: ["Platinum Tan", "Platinum Tans", "RK Tyres"] },
+  { label: "RS", clientNames: ["RS Cars", "RS Energy"] },
+  { label: "Healthy Habits", clientNames: ["Healthy Habits"] },
+  { label: "Kings Valeting", clientNames: ["Kings Valeting"] },
+  { label: "Josh Bird", clientNames: ["Josh Bird"] },
+];
 
 const STATUS_ORDER: ContentStatus[] = ["idea", "scripted", "filmed", "edited", "scheduled", "posted"];
 const STAGE_COLUMNS: ContentStatus[] = ["scripted", "filmed", "edited", "scheduled", "posted"];
@@ -106,23 +117,26 @@ function NotYetScheduled({ items, showClient }: { items: ContentItem[]; showClie
 }
 
 export default function SocialBusinessCard({ items }: { items: ContentItem[] }) {
+  const knownClientNames = new Set(TAB_GROUPS.flatMap((g) => g.clientNames));
   const otherClients = Array.from(
     new Set(
-      items
-        .map((i) => i.client_name)
-        .filter((name): name is string => name !== null && !PERSONAL_BUNDLE.includes(name)),
+      items.map((i) => i.client_name).filter((name): name is string => name !== null && !knownClientNames.has(name)),
     ),
   ).sort();
-  const tabs = [PERSONAL_TAB, ...otherClients];
-  const [activeTab, setActiveTab] = useState<string>(PERSONAL_TAB);
+  const tabs = [...TAB_GROUPS.map((g) => g.label), ...otherClients];
+  const [activeTab, setActiveTab] = useState<string>(tabs[0]);
 
-  const tabItems = items.filter((i) =>
-    activeTab === PERSONAL_TAB
-      ? i.client_name === null || PERSONAL_BUNDLE.includes(i.client_name)
-      : i.client_name === activeTab,
-  );
+  const activeGroup = TAB_GROUPS.find((g) => g.label === activeTab);
+  const tabItems = items.filter((i) => {
+    if (activeGroup) {
+      return (i.client_name !== null && activeGroup.clientNames.includes(i.client_name)) ||
+        (i.client_name === null && activeGroup.includeNullClient === true);
+    }
+    return i.client_name === activeTab;
+  });
   const scheduled = tabItems.filter((i) => i.due_date !== null);
   const unscheduled = tabItems.filter((i) => i.due_date === null);
+  const showClientBadge = (activeGroup?.clientNames.length ?? 1) > 1;
 
   return (
     <Card title="Social Media" count={items.length}>
@@ -152,7 +166,7 @@ export default function SocialBusinessCard({ items }: { items: ContentItem[] }) 
             <p className="text-sm text-ink-3">Nothing scheduled yet in {activeTab}.</p>
           )}
 
-          <NotYetScheduled items={unscheduled} showClient={activeTab === PERSONAL_TAB} />
+          <NotYetScheduled items={unscheduled} showClient={showClientBadge} />
         </div>
       )}
     </Card>
