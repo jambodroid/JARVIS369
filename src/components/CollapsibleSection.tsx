@@ -7,6 +7,7 @@ export default function CollapsibleSection({
   defaultOpen = false,
   preview,
   children,
+  className = "",
 }: {
   title: string;
   defaultOpen?: boolean;
@@ -15,11 +16,12 @@ export default function CollapsibleSection({
   // inside the header's own toggle button.
   preview?: ReactNode;
   children: ReactNode;
+  className?: string;
 }) {
   const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className={`flex flex-col gap-4 ${className}`}>
       <button
         onClick={() => setOpen((v) => !v)}
         className="flex flex-col gap-2 rounded-2xl border border-border bg-surface px-4 py-3 text-left shadow-hud"

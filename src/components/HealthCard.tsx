@@ -1,6 +1,17 @@
 import type { HealthEntry, HealthEntryType } from "@/lib/healthEntries";
 import type { HealthMetricsDay } from "@/lib/healthMetrics";
+import type { HealthPlanKind } from "@/lib/healthPlans";
 import Card from "@/components/Card";
+
+const PLAN_LABEL: Record<HealthPlanKind, string> = {
+  gym: "Gym Plan",
+  diet: "Diet Plan",
+};
+
+const PLAN_EMPTY: Record<HealthPlanKind, string> = {
+  gym: "No gym plan set yet -- tell Jarvis your workout split to get started.",
+  diet: "No diet plan set yet -- tell Jarvis your macro or meal targets to get started.",
+};
 
 const TYPE_LABEL: Record<HealthEntryType, string> = {
   meal: "Meals",
@@ -86,23 +97,50 @@ function AppleHealthSection({ metrics }: { metrics: HealthMetricsDay[] }) {
   );
 }
 
-export default function HealthCard({ entries, metrics }: { entries: HealthEntry[]; metrics: HealthMetricsDay[] }) {
+function PlanBlock({ kind, content }: { kind: HealthPlanKind; content: string | null }) {
+  return (
+    <div>
+      <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-ink-2">{PLAN_LABEL[kind]}</p>
+      {content ? (
+        <p className="whitespace-pre-wrap rounded-xl border border-border/60 bg-surface-2/60 px-3 py-2 text-sm text-ink-1">
+          {content}
+        </p>
+      ) : (
+        <p className="text-sm text-ink-3">{PLAN_EMPTY[kind]}</p>
+      )}
+    </div>
+  );
+}
+
+export default function HealthCard({
+  entries,
+  metrics,
+  plans,
+}: {
+  entries: HealthEntry[];
+  metrics: HealthMetricsDay[];
+  plans: Record<HealthPlanKind, string | null>;
+}) {
   const hasAnything = entries.length > 0 || metrics.some((m) => m.steps != null || m.sleep_hours != null);
 
   return (
     <Card title="Health" count={entries.length}>
-      {!hasAnything ? (
-        <p className="text-sm text-ink-3">
-          Tell Jarvis about a meal, training session, or sleep to get started.
-        </p>
-      ) : (
-        <div className="flex flex-col gap-4">
-          <AppleHealthSection metrics={metrics} />
-          {TYPE_ORDER.map((type) => (
-            <EntryGroup key={type} type={type} entries={entries.filter((e) => e.entry_type === type)} />
-          ))}
-        </div>
-      )}
+      <div className="flex flex-col gap-4">
+        <PlanBlock kind="gym" content={plans.gym} />
+        <PlanBlock kind="diet" content={plans.diet} />
+        {!hasAnything ? (
+          <p className="text-sm text-ink-3">
+            Tell Jarvis about a meal, training session, or sleep to get started.
+          </p>
+        ) : (
+          <>
+            <AppleHealthSection metrics={metrics} />
+            {TYPE_ORDER.map((type) => (
+              <EntryGroup key={type} type={type} entries={entries.filter((e) => e.entry_type === type)} />
+            ))}
+          </>
+        )}
+      </div>
     </Card>
   );
 }

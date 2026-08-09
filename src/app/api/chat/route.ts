@@ -12,7 +12,7 @@ import {
   getRecurringPayments,
   isDueThisWeek,
 } from "@/lib/recurringPayments";
-import { getJournalEntries, upsertJournalEntry } from "@/lib/tradingJournal";
+import { deleteJournalEntry, getJournalEntries, upsertJournalEntry } from "@/lib/tradingJournal";
 import { createSelfEntry, getSelfEntries, type EntryType } from "@/lib/selfEntries";
 import { createHealthEntry, getHealthEntries, type HealthEntryType } from "@/lib/healthEntries";
 import {
@@ -24,6 +24,7 @@ import {
   type ContentStatus,
 } from "@/lib/socialBusiness";
 import { estimateNutrition } from "@/lib/nutrition";
+import { getHealthPlans, setHealthPlan, type HealthPlanKind } from "@/lib/healthPlans";
 
 const MODEL = "claude-opus-5";
 const MAX_ITERATIONS = 6;
@@ -220,6 +221,18 @@ const TOOLS: Tool[] = [
     input_schema: { type: "object", properties: {}, required: [] },
   },
   {
+    name: "delete_trading_journal_entry",
+    description:
+      "Delete a trading journal entry for a given date, e.g. to remove a test/mistaken entry. This does NOT reverse the balance change logging it made -- if the entry had a PnL applied to the AMP Trading balance, adjust the balance separately with update_account_balance if needed.",
+    input_schema: {
+      type: "object",
+      properties: {
+        entry_date: { type: "string", description: "Date in YYYY-MM-DD, from list_trading_journal_entries." },
+      },
+      required: ["entry_date"],
+    },
+  },
+  {
     name: "add_self_entry",
     description:
       "Log a personal entry in the Self section -- a journal/reflection note, a goal, a habit, or an idea. Use whenever the user tells you something that fits one of these, even in passing conversation.",
@@ -284,6 +297,24 @@ const TOOLS: Tool[] = [
       },
       required: [],
     },
+  },
+  {
+    name: "set_health_plan",
+    description:
+      "Set or replace the user's standing gym or diet plan -- a freeform weekly split, macro targets, whatever they describe. This is the plan itself (referenced day to day), not a single day's log -- use add_health_entry for that instead.",
+    input_schema: {
+      type: "object",
+      properties: {
+        kind: { type: "string", enum: ["gym", "diet"], description: "Which plan to set." },
+        content: { type: "string", description: "The full plan text, written clearly (e.g. day-by-day for a gym split)." },
+      },
+      required: ["kind", "content"],
+    },
+  },
+  {
+    name: "get_health_plans",
+    description: "Get the user's current standing gym and diet plans, to reference or quote in conversation.",
+    input_schema: { type: "object", properties: {}, required: [] },
   },
   {
     name: "add_content_item",
@@ -405,8 +436,10 @@ const MUTATING_TOOLS = new Set([
   "add_recurring_payment",
   "delete_recurring_payment",
   "log_trading_journal_entry",
+  "delete_trading_journal_entry",
   "add_self_entry",
   "add_health_entry",
+  "set_health_plan",
   "add_content_item",
   "update_content_item_status",
   "set_content_item_due_date",
@@ -574,6 +607,12 @@ async function executeTool(name: string, input: Record<string, unknown>, timeZon
       const entries = await getJournalEntries(30);
       return { entries };
     }
+    case "delete_trading_journal_entry": {
+      const entryDate = String(input.entry_date ?? "").trim();
+      if (!entryDate) return { error: "entry_date is required" };
+      await deleteJournalEntry(entryDate);
+      return { ok: true };
+    }
     case "add_self_entry": {
       const entryType = input.entry_type as EntryType | undefined;
       const content = String(input.content ?? "").trim();
@@ -617,6 +656,18 @@ async function executeTool(name: string, input: Record<string, unknown>, timeZon
       const entryType = input.entry_type as HealthEntryType | undefined;
       const entries = await getHealthEntries(50);
       return { entries: entryType ? entries.filter((e) => e.entry_type === entryType) : entries };
+    }
+    case "set_health_plan": {
+      const kind = input.kind as HealthPlanKind | undefined;
+      const content = String(input.content ?? "").trim();
+      if (!kind) return { error: "kind is required" };
+      if (!content) return { error: "content is required" };
+      await setHealthPlan(kind, content);
+      return { ok: true };
+    }
+    case "get_health_plans": {
+      const plans = await getHealthPlans();
+      return { plans };
     }
     case "add_content_item": {
       const title = String(input.title ?? "").trim();

@@ -11,6 +11,7 @@ import { getTodayEntry, type JournalEntry } from "@/lib/tradingJournal";
 import { getTodayEntries as getTodaySelfEntries, type SelfEntry } from "@/lib/selfEntries";
 import { getTodayEntries as getTodayHealthEntries, type HealthEntry, type HealthEntryType } from "@/lib/healthEntries";
 import type { HealthMetricsDay } from "@/lib/healthMetrics";
+import type { HealthPlanKind } from "@/lib/healthPlans";
 import { getPipelineSummary, type ContentItem } from "@/lib/socialBusiness";
 import TaskRow from "@/components/TaskRow";
 import Card from "@/components/Card";
@@ -81,6 +82,7 @@ export default function TaskBoard({
   selfEntries,
   healthEntries,
   healthMetrics,
+  healthPlans,
   contentItems,
 }: {
   openTasks: Task[];
@@ -96,6 +98,7 @@ export default function TaskBoard({
   selfEntries: SelfEntry[];
   healthEntries: HealthEntry[];
   healthMetrics: HealthMetricsDay[];
+  healthPlans: Record<HealthPlanKind, string | null>;
   contentItems: ContentItem[];
 }) {
   const router = useRouter();
@@ -199,7 +202,7 @@ export default function TaskBoard({
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-accent/20 px-4 py-3 sm:px-6">
-        <div className="mx-auto flex max-w-lg items-center justify-between">
+        <div className="mx-auto flex max-w-lg items-center justify-between md:max-w-3xl lg:max-w-5xl">
           <h1 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-widest text-ink-0">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent shadow-[0_0_8px_2px_var(--accent)]" />
             Tasks
@@ -222,46 +225,48 @@ export default function TaskBoard({
           </div>
         </div>
         {passkeyStatus && (
-          <div className="mx-auto max-w-lg pt-1">
+          <div className="mx-auto max-w-lg pt-1 md:max-w-3xl lg:max-w-5xl">
             <p className="text-xs text-ink-3">{passkeyStatus}</p>
           </div>
         )}
       </header>
 
-      <main className="mx-auto flex max-w-lg flex-col gap-4 px-4 py-5 sm:px-6">
+      <main className="mx-auto flex max-w-lg flex-col gap-4 px-4 py-5 sm:px-6 md:max-w-3xl lg:max-w-5xl">
         <JarvisPanel />
 
-        <CollapsibleSection title="Today" defaultOpen>
-          <TaskPeriodSection tasks={openTasks} />
-          <CompletedSection tasks={completed} />
-          {googleConnected ? (
-            <WeekCalendar events={events} />
-          ) : (
-            <ConnectGoogleCalendar error={googleError} />
-          )}
-        </CollapsibleSection>
+        <div className="flex flex-col gap-4 md:grid md:grid-cols-2 md:items-start md:gap-4">
+          <CollapsibleSection title="Today" defaultOpen className="md:col-span-2">
+            <TaskPeriodSection tasks={openTasks} />
+            <CompletedSection tasks={completed} />
+            {googleConnected ? (
+              <WeekCalendar events={events} />
+            ) : (
+              <ConnectGoogleCalendar error={googleError} />
+            )}
+          </CollapsibleSection>
 
-        <CollapsibleSection title="Business" preview={businessPreview}>
-          <SocialBusinessCard items={contentItems} />
-        </CollapsibleSection>
+          <CollapsibleSection title="Business" preview={businessPreview}>
+            <SocialBusinessCard items={contentItems} />
+          </CollapsibleSection>
 
-        <CollapsibleSection title="Finances" preview={financesPreview}>
-          <NetWorthCard accounts={netWorthAccounts} snapshots={netWorthSnapshots} />
-          <RecurringPaymentsCard payments={recurringPayments} />
-        </CollapsibleSection>
+          <CollapsibleSection title="Finances" preview={financesPreview}>
+            <NetWorthCard accounts={netWorthAccounts} snapshots={netWorthSnapshots} />
+            <RecurringPaymentsCard payments={recurringPayments} />
+          </CollapsibleSection>
 
-        <CollapsibleSection title="Trading" preview={tradingPreview}>
-          <TradingCard account={tradingAccount} snapshots={netWorthSnapshots} />
-          <TradingJournalCard entries={journalEntries} />
-        </CollapsibleSection>
+          <CollapsibleSection title="Trading" preview={tradingPreview}>
+            <TradingCard account={tradingAccount} snapshots={netWorthSnapshots} />
+            <TradingJournalCard entries={journalEntries} />
+          </CollapsibleSection>
 
-        <CollapsibleSection title="Health" preview={healthPreview}>
-          <HealthCard entries={healthEntries} metrics={healthMetrics} />
-        </CollapsibleSection>
+          <CollapsibleSection title="Health" preview={healthPreview}>
+            <HealthCard entries={healthEntries} metrics={healthMetrics} plans={healthPlans} />
+          </CollapsibleSection>
 
-        <CollapsibleSection title="Self" preview={selfPreview}>
-          <SelfCard entries={selfEntries} />
-        </CollapsibleSection>
+          <CollapsibleSection title="Self" preview={selfPreview}>
+            <SelfCard entries={selfEntries} />
+          </CollapsibleSection>
+        </div>
       </main>
     </div>
   );

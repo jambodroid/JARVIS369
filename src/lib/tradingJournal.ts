@@ -45,6 +45,12 @@ export async function upsertJournalEntry(input: {
   return data as JournalEntry;
 }
 
+export async function deleteJournalEntry(entryDate: string): Promise<void> {
+  const supabase = getSupabaseClient();
+  const { error } = await supabase.from("trading_journal_entries").delete().eq("entry_date", entryDate);
+  if (error) throw new Error(error.message);
+}
+
 // Pure -- no Supabase call. Used for the collapsed-section preview.
 export function getTodayEntry(entries: JournalEntry[]): JournalEntry | null {
   const todayKey = localDateKey(new Date());
