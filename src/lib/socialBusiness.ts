@@ -1,7 +1,22 @@
 import { getSupabaseClient, withTransientRetry } from "@/lib/supabase";
 import { upsertContentItemEvent } from "@/lib/google";
+import { localDateKey } from "@/lib/tasks";
 
 export type ContentStatus = "idea" | "scripted" | "filmed" | "edited" | "scheduled" | "posted";
+
+const STATUS_ORDER: ContentStatus[] = ["idea", "scripted", "filmed", "edited", "scheduled", "posted"];
+type ContentTaskStage = "edit" | "schedule" | "post";
+const STAGE_VERB: Record<ContentTaskStage, string> = { edit: "Edit", schedule: "Schedule", post: "Post" };
+
+// Which action is still needed to get a piece of content out the door,
+// based on how far it's progressed. null means nothing left to do (posted).
+function stageNeeded(status: ContentStatus): ContentTaskStage | null {
+  const idx = STATUS_ORDER.indexOf(status);
+  if (idx < STATUS_ORDER.indexOf("edited")) return "edit";
+  if (status === "edited") return "schedule";
+  if (status === "scheduled") return "post";
+  return null;
+}
 
 export type Client = {
   id: string;
@@ -132,6 +147,51 @@ async function syncCalendarIfDated(item: ContentItem, timeZone: string): Promise
   }
 }
 
+// If a content item is due today and still needs work, makes sure there's
+// an open task for the next required action (edit/schedule/post) -- so
+// nothing due today silently gets missed just because it wasn't checked on.
+// Idempotent: won't duplicate a task for a stage that already has one open.
+// Any open task linked to this item for a stage that's no longer current
+// gets auto-completed -- the pipeline status advancing already confirms
+// that stage is done, so it shouldn't sit open waiting to be checked off.
+export async function syncTaskForContentItem(item: ContentItem): Promise<void> {
+  if (!item.due_date || item.due_date !== localDateKey(new Date())) return;
+
+  const supabase = getSupabaseClient();
+  const stage = stageNeeded(item.status);
+
+  const { data: openLinked, error: openLinkedError } = await supabase
+    .from("tasks")
+    .select("id, content_stage")
+    .eq("source_content_item_id", item.id)
+    .is("completed_at", null);
+  if (openLinkedError) throw new Error(openLinkedError.message);
+
+  const staleIds = (openLinked ?? []).filter((t) => t.content_stage !== stage).map((t) => t.id);
+  if (staleIds.length > 0) {
+    const { error: completeError } = await supabase
+      .from("tasks")
+      .update({ completed_at: new Date().toISOString() })
+      .in("id", staleIds);
+    if (completeError) throw new Error(completeError.message);
+  }
+
+  if (!stage) return;
+  if ((openLinked ?? []).some((t) => t.content_stage === stage)) return;
+
+  const title = `${STAGE_VERB[stage]}: ${item.title}${item.client_name ? ` (${item.client_name})` : ""}`;
+  const { error: insertError } = await supabase.from("tasks").insert({
+    title,
+    due_date: item.due_date,
+    due_time: null,
+    priority: "high",
+    category: "social",
+    source_content_item_id: item.id,
+    content_stage: stage,
+  });
+  if (insertError) throw new Error(insertError.message);
+}
+
 export async function createContentItem(
   input: {
     client_name?: string;
@@ -161,8 +221,9 @@ export async function createContentItem(
     .select("*, social_clients(name)")
     .single();
   if (error) throw new Error(error.message);
-  const item = rowToContentItem(data as unknown as ContentItemRow);
-  return syncCalendarIfDated(item, timeZone);
+  const item = await syncCalendarIfDated(rowToContentItem(data as unknown as ContentItemRow), timeZone);
+  await syncTaskForContentItem(item);
+  return item;
 }
 
 export async function updateContentItemStatus(id: string, status: ContentStatus): Promise<ContentItem> {
@@ -174,7 +235,9 @@ export async function updateContentItemStatus(id: string, status: ContentStatus)
     .select("*, social_clients(name)")
     .single();
   if (error) throw new Error(error.message);
-  return rowToContentItem(data as unknown as ContentItemRow);
+  const item = rowToContentItem(data as unknown as ContentItemRow);
+  await syncTaskForContentItem(item);
+  return item;
 }
 
 export async function setContentItemDueDate(id: string, dueDate: string, timeZone: string): Promise<ContentItem> {
@@ -186,8 +249,9 @@ export async function setContentItemDueDate(id: string, dueDate: string, timeZon
     .select("*, social_clients(name)")
     .single();
   if (error) throw new Error(error.message);
-  const item = rowToContentItem(data as unknown as ContentItemRow);
-  return syncCalendarIfDated(item, timeZone);
+  const item = await syncCalendarIfDated(rowToContentItem(data as unknown as ContentItemRow), timeZone);
+  await syncTaskForContentItem(item);
+  return item;
 }
 
 // Pure -- no Supabase call. Used for the collapsed-section preview.

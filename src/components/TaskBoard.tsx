@@ -258,7 +258,7 @@ export default function TaskBoard({
             )}
           </CollapsibleSection>
 
-          <CollapsibleSection title="Business" preview={businessPreview}>
+          <CollapsibleSection title="Social Media" preview={businessPreview}>
             <SocialBusinessCard items={contentItems} />
           </CollapsibleSection>
 

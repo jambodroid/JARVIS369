@@ -125,7 +125,7 @@ export default function SocialBusinessCard({ items }: { items: ContentItem[] }) 
   const unscheduled = tabItems.filter((i) => i.due_date === null);
 
   return (
-    <Card title="Business" count={items.length}>
+    <Card title="Social Media" count={items.length}>
       {items.length === 0 ? (
         <p className="text-sm text-ink-3">Tell Jarvis about a client video or post to get started.</p>
       ) : (
