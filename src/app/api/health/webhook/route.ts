@@ -38,10 +38,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid webhook secret" }, { status: 401 });
   }
 
-  const body = (await request.json().catch(() => null)) as HealthAutoExportPayload | null;
+  const body = (await request.json().catch((error) => {
+    console.error("Health webhook: failed to parse request body", error);
+    return null;
+  })) as HealthAutoExportPayload | null;
   if (!body?.data) {
+    console.error("Health webhook: no data in payload", JSON.stringify(body).slice(0, 500));
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
+
+  console.log(
+    "Health webhook received:",
+    JSON.stringify({
+      metricNames: (body.data.metrics ?? []).map((m) => ({ name: m.name, entries: m.data?.length ?? 0 })),
+      workoutCount: body.data.workouts?.length ?? 0,
+    }),
+  );
 
   const stepsByDate = new Map<string, number>();
   const sleepByDate = new Map<string, number>();
@@ -82,13 +94,16 @@ export async function POST(request: NextRequest) {
   }
 
   const dates = new Set([...stepsByDate.keys(), ...sleepByDate.keys(), ...workoutsByDate.keys()]);
-  for (const date of dates) {
-    await upsertHealthMetrics(date, {
-      steps: stepsByDate.get(date),
-      sleepHours: sleepByDate.get(date),
-      workouts: workoutsByDate.get(date),
-    });
-  }
+  await Promise.all(
+    [...dates].map((date) =>
+      upsertHealthMetrics(date, {
+        steps: stepsByDate.get(date),
+        sleepHours: sleepByDate.get(date),
+        workouts: workoutsByDate.get(date),
+      }),
+    ),
+  );
 
+  console.log(`Health webhook: updated ${dates.size} date(s)`);
   return NextResponse.json({ ok: true, datesUpdated: dates.size });
 }
