@@ -268,7 +268,7 @@ const TOOLS: Tool[] = [
   {
     name: "add_health_entry",
     description:
-      "Log a health entry -- a meal, a training session, or sleep. Use whenever the user tells you something that fits one of these, even in passing conversation.",
+      "Log a health entry -- a meal, a training session, or sleep. Use whenever the user tells you something that fits one of these, even in passing conversation. If they're describing something from an earlier day (e.g. \"yesterday's dinner was...\"), set logged_date to that day instead of writing \"yesterday\" into the content -- the content should just describe the entry itself, the date is tracked separately.",
     input_schema: {
       type: "object",
       properties: {
@@ -277,7 +277,11 @@ const TOOLS: Tool[] = [
           enum: ["meal", "training", "sleep"],
           description: "Which kind of entry this is.",
         },
-        content: { type: "string", description: "The entry text, in the user's own words where possible." },
+        content: { type: "string", description: "The entry text, in the user's own words where possible. Describe the entry itself -- don't prefix it with \"yesterday\"/\"today\", use logged_date for that." },
+        logged_date: {
+          type: "string",
+          description: "Date in YYYY-MM-DD this entry actually happened on, if not today (e.g. the user is describing yesterday's dinner). Omit for entries happening now/today.",
+        },
       },
       required: ["entry_type", "content"],
     },
@@ -642,6 +646,7 @@ async function executeTool(name: string, input: Record<string, unknown>, timeZon
         }
       }
 
+      const loggedDate = input.logged_date as string | undefined;
       const entry = await createHealthEntry({
         entry_type: entryType,
         content,
@@ -649,6 +654,7 @@ async function executeTool(name: string, input: Record<string, unknown>, timeZon
         protein_g: macros.protein,
         carbs_g: macros.carbs,
         fat_g: macros.fat,
+        logged_at: loggedDate ? `${loggedDate}T12:00:00Z` : undefined,
       });
       return { entry };
     }

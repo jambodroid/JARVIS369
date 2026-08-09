@@ -33,9 +33,12 @@ export async function createHealthEntry(input: {
   protein_g?: number;
   carbs_g?: number;
   fat_g?: number;
+  logged_at?: string;
 }): Promise<HealthEntry> {
+  const { logged_at, ...rest } = input;
   const supabase = getSupabaseClient();
-  const { data, error } = await supabase.from("health_entries").insert(input).select().single();
+  const row = logged_at ? { ...rest, created_at: logged_at } : rest;
+  const { data, error } = await supabase.from("health_entries").insert(row).select().single();
   if (error) throw new Error(error.message);
   return data as HealthEntry;
 }
