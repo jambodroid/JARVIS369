@@ -11,6 +11,7 @@ import {
   deleteRecurringPaymentByName,
   getRecurringPayments,
   isDueThisWeek,
+  setDebtDetails,
 } from "@/lib/recurringPayments";
 import { deleteJournalEntry, getJournalEntries, upsertJournalEntry } from "@/lib/tradingJournal";
 import { createSelfEntry, getSelfEntries, type EntryType } from "@/lib/selfEntries";
@@ -191,6 +192,25 @@ const TOOLS: Tool[] = [
     input_schema: {
       type: "object",
       properties: { name: { type: "string", description: "Exact payment name, from list_recurring_payments." } },
+      required: ["name"],
+    },
+  },
+  {
+    name: "set_debt_details",
+    description:
+      "Set or update the detailed payoff info for an existing debt (must already be tracked as a debt via add_recurring_payment with is_debt true) -- original loan amount, current remaining balance, total payable over the term, amount paid so far, interest rate, and months remaining/total. Only pass the fields the user actually gave you; leave the rest out rather than guessing.",
+    input_schema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Exact debt name, from list_recurring_payments." },
+        original_amount: { type: "number", description: "The original amount borrowed." },
+        remaining_balance: { type: "number", description: "Current amount still owed." },
+        total_payable: { type: "number", description: "Total amount payable over the full term, including interest/fees." },
+        paid_so_far: { type: "number", description: "Amount already paid." },
+        interest_rate: { type: "number", description: "Fixed annual interest rate, as a percentage e.g. 18.25." },
+        term_months_total: { type: "number", description: "Total number of months in the term." },
+        term_months_remaining: { type: "number", description: "Months left to pay." },
+      },
       required: ["name"],
     },
   },
@@ -489,6 +509,7 @@ const MUTATING_TOOLS = new Set([
   "update_account_balance",
   "add_recurring_payment",
   "delete_recurring_payment",
+  "set_debt_details",
   "log_trading_journal_entry",
   "delete_trading_journal_entry",
   "add_self_entry",
@@ -640,6 +661,24 @@ async function executeTool(name: string, input: Record<string, unknown>, timeZon
       if (!name) return { error: "name is required" };
       await deleteRecurringPaymentByName(name);
       return { ok: true };
+    }
+    case "set_debt_details": {
+      const name = String(input.name ?? "").trim();
+      if (!name) return { error: "name is required" };
+      const details: Record<string, number> = {};
+      for (const key of [
+        "original_amount",
+        "remaining_balance",
+        "total_payable",
+        "paid_so_far",
+        "interest_rate",
+        "term_months_total",
+        "term_months_remaining",
+      ]) {
+        if (input[key] !== undefined) details[key] = Number(input[key]);
+      }
+      const payment = await setDebtDetails(name, details);
+      return { payment };
     }
     case "log_trading_journal_entry": {
       const traded = Boolean(input.traded);

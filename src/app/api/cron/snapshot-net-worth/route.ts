@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseClient } from "@/lib/supabase";
 import { refreshTrueLayerBalance } from "@/lib/truelayer";
+import { applyDueRecurringPayments } from "@/lib/recurringPayments";
 import { localDateKey } from "@/lib/tasks";
 
 type AccountRow = {
@@ -19,6 +20,13 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = getSupabaseClient();
+
+  try {
+    await applyDueRecurringPayments();
+  } catch (err) {
+    console.error("Failed to apply due recurring payments", err);
+  }
+
   const { data, error } = await supabase.from("net_worth_accounts").select("*");
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

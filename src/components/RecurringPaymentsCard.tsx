@@ -55,6 +55,91 @@ function PaymentRow({ payment }: { payment: RecurringPayment }) {
   );
 }
 
+// Best available progress fraction, trying each pair of fields in order
+// of how directly it reflects "paid" -- not every debt has every field.
+function paidFraction(p: RecurringPayment): number | null {
+  if (p.paid_so_far != null && p.total_payable) return p.paid_so_far / p.total_payable;
+  if (p.original_amount && p.remaining_balance != null) {
+    return (p.original_amount - p.remaining_balance) / p.original_amount;
+  }
+  if (p.term_months_total && p.term_months_remaining != null) {
+    return (p.term_months_total - p.term_months_remaining) / p.term_months_total;
+  }
+  return null;
+}
+
+function DebtRow({ payment }: { payment: RecurringPayment }) {
+  const router = useRouter();
+  const [deleting, setDeleting] = useState(false);
+  const dueThisWeek = isDueThisWeek(payment.day_of_month);
+  const fraction = paidFraction(payment);
+
+  async function handleDelete() {
+    setDeleting(true);
+    await fetch(`/api/recurring-payments/${payment.id}`, { method: "DELETE" });
+    router.refresh();
+  }
+
+  const detailParts = [
+    payment.term_months_total != null && payment.term_months_remaining != null
+      ? `${payment.term_months_remaining} of ${payment.term_months_total} months left`
+      : null,
+    payment.interest_rate != null ? `${payment.interest_rate}% APR` : null,
+  ].filter(Boolean);
+
+  return (
+    <li className="flex flex-col gap-2 rounded-xl border border-border/60 bg-surface-2/60 px-3 py-2.5">
+      <div className="flex items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <p className="truncate text-sm text-ink-0">{payment.name}</p>
+            {dueThisWeek && (
+              <span className="shrink-0 rounded-full bg-accent/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-accent">
+                This week
+              </span>
+            )}
+          </div>
+          <p className="font-mono text-xs text-ink-3">
+            {ordinal(payment.day_of_month)} &middot; {payment.account}
+          </p>
+        </div>
+        <span className="shrink-0 font-mono text-sm text-ink-0">{formatMoney(payment.amount)}</span>
+        <button
+          onClick={handleDelete}
+          disabled={deleting}
+          className="shrink-0 text-xs text-ink-3 hover:text-danger disabled:opacity-50"
+        >
+          Remove
+        </button>
+      </div>
+
+      {payment.remaining_balance != null && (
+        <div className="border-t border-border/60 pt-2">
+          <div className="flex items-baseline justify-between">
+            <span className="font-mono text-sm font-semibold text-ink-0">
+              {formatMoney(payment.remaining_balance)} remaining
+            </span>
+            {payment.total_payable != null && (
+              <span className="font-mono text-xs text-ink-3">of {formatMoney(payment.total_payable)}</span>
+            )}
+          </div>
+          {fraction != null && (
+            <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-surface">
+              <div
+                className="h-full rounded-full bg-accent"
+                style={{ width: `${Math.min(100, Math.max(0, fraction * 100))}%` }}
+              />
+            </div>
+          )}
+          {detailParts.length > 0 && (
+            <p className="mt-1.5 font-mono text-xs text-ink-3">{detailParts.join(" · ")}</p>
+          )}
+        </div>
+      )}
+    </li>
+  );
+}
+
 export default function RecurringPaymentsCard({ payments }: { payments: RecurringPayment[] }) {
   const [showDebts, setShowDebts] = useState(false);
 
@@ -94,7 +179,7 @@ export default function RecurringPaymentsCard({ payments }: { payments: Recurrin
             <>
               <ul className="mt-3 flex flex-col gap-2">
                 {debts.map((p) => (
-                  <PaymentRow key={p.id} payment={p} />
+                  <DebtRow key={p.id} payment={p} />
                 ))}
               </ul>
               <div className="mt-3 flex items-center justify-between border-t border-border pt-2 text-sm font-semibold">
