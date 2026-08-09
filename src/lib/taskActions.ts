@@ -5,6 +5,7 @@ import {
   setTaskCompleted,
   setTaskGoogleEventId,
   updateTaskDateTime,
+  updateTaskFields,
   type Priority,
   type Task,
 } from "@/lib/tasks";
@@ -48,6 +49,37 @@ export async function rescheduleTask(
   timeZone: string,
 ): Promise<Task> {
   const task = await updateTaskDateTime(id, due_date, due_time);
+  return syncCalendarIfTimed(task, timeZone);
+}
+
+// Full edit from the task list UI -- title/category/priority/date/time all
+// at once. If clearing the time drops the task below the calendar-sync
+// bar (needs both due_date and due_time), the now-stale event is removed
+// rather than left orphaned on the calendar.
+export async function editTask(
+  id: string,
+  input: {
+    title?: string;
+    category?: Category;
+    priority?: Priority;
+    due_date?: string | null;
+    due_time?: string | null;
+  },
+  timeZone: string,
+): Promise<Task> {
+  const before = await getTaskById(id);
+  const task = await updateTaskFields(id, input);
+
+  if (before?.google_event_id && !(task.due_date && task.due_time)) {
+    try {
+      await deleteCalendarEvent(before.google_event_id);
+      return await setTaskGoogleEventId(task.id, null);
+    } catch (error) {
+      console.error("Failed to delete stale Google Calendar event", error);
+      return task;
+    }
+  }
+
   return syncCalendarIfTimed(task, timeZone);
 }
 

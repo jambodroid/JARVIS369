@@ -97,7 +97,7 @@ export async function insertTaskRow(input: {
   return data as Task;
 }
 
-export async function setTaskGoogleEventId(id: string, googleEventId: string): Promise<Task> {
+export async function setTaskGoogleEventId(id: string, googleEventId: string | null): Promise<Task> {
   const supabase = getSupabaseClient();
   const { data, error } = await supabase
     .from("tasks")
@@ -125,6 +125,16 @@ export async function deleteTaskRow(id: string): Promise<void> {
   const supabase = getSupabaseClient();
   const { error } = await supabase.from("tasks").delete().eq("id", id);
   if (error) throw new Error(error.message);
+}
+
+export async function updateTaskFields(
+  id: string,
+  fields: { title?: string; category?: Category; priority?: Priority; due_date?: string | null; due_time?: string | null },
+): Promise<Task> {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase.from("tasks").update(fields).eq("id", id).select().single();
+  if (error) throw new Error(error.message);
+  return data as Task;
 }
 
 export async function updateTaskDateTime(
