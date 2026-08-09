@@ -19,7 +19,7 @@ const NUTRITION_SCHEMA = {
   additionalProperties: false,
 };
 
-export async function estimateNutrition(description: string): Promise<NutritionEstimate> {
+async function estimateNutritionOnce(description: string): Promise<NutritionEstimate> {
   const anthropic = new Anthropic();
   const response = await anthropic.messages.create({
     model: "claude-opus-5",
@@ -46,4 +46,18 @@ export async function estimateNutrition(description: string): Promise<NutritionE
   }
 
   return JSON.parse(block.text) as NutritionEstimate;
+}
+
+// Retries once on a transient failure (network blip, rate limit, malformed
+// output) so a meal doesn't lose its calorie estimate to a single bad call.
+export async function estimateNutrition(description: string, retries = 2): Promise<NutritionEstimate> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      return await estimateNutritionOnce(description);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError;
 }
