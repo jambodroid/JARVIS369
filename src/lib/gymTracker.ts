@@ -108,6 +108,12 @@ export async function logGymSession(input: {
   return rowToSession({ ...session, gym_exercise_logs: exercises } as SessionRow, watchWorkouts);
 }
 
+export async function deleteGymSession(sessionDate: string): Promise<void> {
+  const supabase = getSupabaseClient();
+  const { error } = await supabase.from("gym_sessions").delete().eq("session_date", sessionDate);
+  if (error) throw new Error(error.message);
+}
+
 // Pure -- no Supabase call. Weight-over-time series for one exercise, for
 // charting progress. Sessions are already newest-first; reverse to
 // chronological order for a left-to-right chart.

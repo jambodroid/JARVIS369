@@ -25,7 +25,7 @@ import {
 } from "@/lib/socialBusiness";
 import { estimateNutrition } from "@/lib/nutrition";
 import { getHealthPlans, setHealthPlan, type HealthPlanKind } from "@/lib/healthPlans";
-import { getGymSessions, logGymSession } from "@/lib/gymTracker";
+import { deleteGymSession, getGymSessions, logGymSession } from "@/lib/gymTracker";
 
 const MODEL = "claude-opus-5";
 const MAX_ITERATIONS = 6;
@@ -360,6 +360,17 @@ const TOOLS: Tool[] = [
     input_schema: { type: "object", properties: {}, required: [] },
   },
   {
+    name: "delete_gym_session",
+    description: "Delete a logged gym session for a given date, e.g. to remove one logged by mistake.",
+    input_schema: {
+      type: "object",
+      properties: {
+        session_date: { type: "string", description: "Date in YYYY-MM-DD, from list_gym_sessions." },
+      },
+      required: ["session_date"],
+    },
+  },
+  {
     name: "add_content_item",
     description:
       "Log a new piece of social media content for the business pipeline (a video, post, etc.), optionally tied to a client. Use when the user mentions scripting, filming, editing, or posting something for a client or their own channels. The client doesn't need to already exist -- it's created automatically if new.",
@@ -484,6 +495,7 @@ const MUTATING_TOOLS = new Set([
   "add_health_entry",
   "set_health_plan",
   "log_gym_session",
+  "delete_gym_session",
   "add_content_item",
   "update_content_item_status",
   "set_content_item_due_date",
@@ -743,6 +755,12 @@ async function executeTool(name: string, input: Record<string, unknown>, timeZon
     case "list_gym_sessions": {
       const sessions = await getGymSessions(30);
       return { sessions };
+    }
+    case "delete_gym_session": {
+      const sessionDate = String(input.session_date ?? "").trim();
+      if (!sessionDate) return { error: "session_date is required" };
+      await deleteGymSession(sessionDate);
+      return { ok: true };
     }
     case "add_content_item": {
       const title = String(input.title ?? "").trim();
