@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import type { ContentItem, ContentStatus } from "@/lib/socialBusiness";
+import { localDateKey } from "@/lib/tasks";
 import Card from "@/components/Card";
+
+const TODAY_TAB = "Today";
 
 // Fixed tab order per the user's actual client list. Platinum Tan + RK
 // Tyres already post together (matches the "Post RS + Platinum/RK"
@@ -54,7 +57,7 @@ function stageReached(item: ContentItem, stage: ContentStatus): boolean {
   return STATUS_ORDER.indexOf(item.status) >= STATUS_ORDER.indexOf(stage);
 }
 
-function PipelineTable({ items }: { items: ContentItem[] }) {
+function PipelineTable({ items, showClient = false }: { items: ContentItem[]; showClient?: boolean }) {
   const sorted = [...items].sort((a, b) => (a.due_date! < b.due_date! ? -1 : 1));
 
   return (
@@ -66,6 +69,11 @@ function PipelineTable({ items }: { items: ContentItem[] }) {
               Date
             </th>
             <th className="py-1.5 pr-3 text-xs font-medium uppercase tracking-wide text-ink-3">Post</th>
+            {showClient && (
+              <th className="whitespace-nowrap py-1.5 pr-3 text-xs font-medium uppercase tracking-wide text-ink-3">
+                Client
+              </th>
+            )}
             {STAGE_COLUMNS.map((stage) => (
               <th
                 key={stage}
@@ -81,6 +89,11 @@ function PipelineTable({ items }: { items: ContentItem[] }) {
             <tr key={item.id} className="border-b border-border/40">
               <td className="whitespace-nowrap py-2 pr-3 text-xs text-ink-3">{formatDueDate(item.due_date!)}</td>
               <td className="max-w-[140px] truncate py-2 pr-3 text-ink-0">{item.title}</td>
+              {showClient && (
+                <td className="whitespace-nowrap py-2 pr-3 font-mono text-xs text-ink-3">
+                  {item.client_name ?? "—"}
+                </td>
+              )}
               {STAGE_COLUMNS.map((stage) => (
                 <td key={stage} className="px-2 py-2 text-center">
                   {stageReached(item, stage) && <span className="text-accent">✓</span>}
@@ -123,11 +136,13 @@ export default function SocialBusinessCard({ items }: { items: ContentItem[] }) 
       items.map((i) => i.client_name).filter((name): name is string => name !== null && !knownClientNames.has(name)),
     ),
   ).sort();
-  const tabs = [...TAB_GROUPS.map((g) => g.label), ...otherClients];
-  const [activeTab, setActiveTab] = useState<string>(tabs[0]);
+  const tabs = [TODAY_TAB, ...TAB_GROUPS.map((g) => g.label), ...otherClients];
+  const [activeTab, setActiveTab] = useState<string>(TODAY_TAB);
 
+  const isToday = activeTab === TODAY_TAB;
   const activeGroup = TAB_GROUPS.find((g) => g.label === activeTab);
   const tabItems = items.filter((i) => {
+    if (isToday) return i.due_date === localDateKey(new Date());
     if (activeGroup) {
       return (i.client_name !== null && activeGroup.clientNames.includes(i.client_name)) ||
         (i.client_name === null && activeGroup.includeNullClient === true);
@@ -136,7 +151,7 @@ export default function SocialBusinessCard({ items }: { items: ContentItem[] }) 
   });
   const scheduled = tabItems.filter((i) => i.due_date !== null);
   const unscheduled = tabItems.filter((i) => i.due_date === null);
-  const showClientBadge = (activeGroup?.clientNames.length ?? 1) > 1;
+  const showClientBadge = isToday || (activeGroup?.clientNames.length ?? 1) > 1;
 
   return (
     <Card title="Social Media" count={items.length}>
@@ -161,9 +176,11 @@ export default function SocialBusinessCard({ items }: { items: ContentItem[] }) 
           </div>
 
           {scheduled.length > 0 ? (
-            <PipelineTable items={scheduled} />
+            <PipelineTable items={scheduled} showClient={showClientBadge} />
           ) : (
-            <p className="text-sm text-ink-3">Nothing scheduled yet in {activeTab}.</p>
+            <p className="text-sm text-ink-3">
+              {isToday ? "Nothing posting today." : `Nothing scheduled yet in ${activeTab}.`}
+            </p>
           )}
 
           <NotYetScheduled items={unscheduled} showClient={showClientBadge} />
