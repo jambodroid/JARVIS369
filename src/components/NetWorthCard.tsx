@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { NetWorthAccount, NetWorthSnapshot } from "@/lib/netWorth";
-import { computeTotal } from "@/lib/netWorth";
 import Card from "@/components/Card";
 import PeriodTrendChart from "@/components/PeriodTrendChart";
 
@@ -92,12 +91,22 @@ export default function NetWorthCard({
   snapshots: NetWorthSnapshot[];
 }) {
   const [tab, setTab] = useState<"networth" | "debts">("networth");
-  const total = computeTotal(accounts);
-  const trend = snapshots.map((s) => ({ date: s.snapshot_date, value: s.total }));
 
   const assets = accounts.filter((a) => a.kind === "asset");
   const liabilities = accounts.filter((a) => a.kind === "liability");
+  const assetsTotal = assets.reduce((sum, a) => sum + Number(a.balance), 0);
   const debtsTotal = liabilities.reduce((sum, a) => sum + Number(a.balance), 0);
+
+  // Historical snapshots store a per-account breakdown -- sum just the
+  // accounts that are assets today, so the trend matches the assets-only
+  // total above instead of the old assets-minus-liabilities figure.
+  const assetNames = new Set(assets.map((a) => a.name));
+  const trend = snapshots.map((s) => ({
+    date: s.snapshot_date,
+    value: s.breakdown
+      ? Object.entries(s.breakdown).reduce((sum, [name, value]) => (assetNames.has(name) ? sum + value : sum), 0)
+      : s.total,
+  }));
 
   return (
     <Card title="Net Worth">
@@ -126,7 +135,7 @@ export default function NetWorthCard({
 
             <div className="mt-1 flex items-center justify-between border-t border-border pt-2 text-sm font-semibold">
               <span className="text-ink-0">Total</span>
-              <span className="font-mono text-accent">{formatMoney(total, "GBP")}</span>
+              <span className="font-mono text-accent">{formatMoney(assetsTotal, "GBP")}</span>
             </div>
           </div>
 
