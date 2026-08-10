@@ -81,7 +81,7 @@ const TOOLS: Tool[] = [
   {
     name: "add_task",
     description:
-      "Create a new task. If given a due_time, this also creates a matching event on the user's Google Calendar. Leave due_date out entirely for a 'sometime this week, no specific day' brain-dump task.",
+      "Create a new task. If given a due_time, this also creates a matching event on the user's Google Calendar. Leave due_date out entirely for a 'sometime this week, no specific day' brain-dump task. If a task with the same title already exists on the same due date, this returns that existing task instead of creating a duplicate -- but check list_tasks yourself first when the user is just narrating something already on their list (e.g. 'I'm going to edit the RK videos now') rather than asking to add something new; don't call this at all in that case.",
     input_schema: {
       type: "object",
       properties: {
@@ -494,6 +494,8 @@ When creating or categorizing a task or calendar event, default anything related
 
 When a message starts with "journal:" or otherwise clearly expresses intent to journal or reflect, always log it verbatim via add_self_entry with entry_type "journal" -- don't treat it as a task or paraphrase it.
 
+The user often narrates what they're currently doing or about to do ("I'm going to edit the RK videos now", "starting the gym session") rather than asking for something new to be added. Before calling add_task, call list_tasks and check whether a task with essentially the same title is already on today's list (or already has a calendar event around now) -- if so, just acknowledge it ("on it") instead of adding another one. Only call add_task for something genuinely not already tracked. add_task itself also refuses an exact same-title-and-date duplicate and hands back the existing task instead, but don't rely on that as the first line of defense -- it won't catch near-duplicates (slightly different wording) or the same activity re-described later in the day.
+
 Use the tools to look up or change the user's tasks and calendar before answering -- don't guess what's scheduled or already invent task ids. When you take an action (adding, completing, rescheduling a task), briefly confirm what you did in plain language.
 
 Keep replies short and conversational, like a text message -- this is a small chat widget on a phone screen.`;
@@ -570,10 +572,28 @@ async function executeTool(name: string, input: Record<string, unknown>, timeZon
     case "add_task": {
       const title = String(input.title ?? "").trim();
       if (!title) return { error: "title is required" };
+      const due_date = (input.due_date as string | undefined) || null;
+
+      // The user narrating what they're about to do ("I'm going to edit the
+      // RK Tyres videos now") reads a lot like a request to add a task, and
+      // was silently creating a duplicate task + calendar event every time
+      // even though the same thing was already on today's list. Same
+      // title (case/whitespace-insensitive) + same due date (or both
+      // dateless) is treated as the same task -- return the existing one
+      // instead of creating a near-identical duplicate.
+      const normalizedTitle = title.toLowerCase().replace(/\s+/g, " ");
+      const openTasks = await getOpenTasks();
+      const existing = openTasks.find(
+        (t) => t.title.trim().toLowerCase().replace(/\s+/g, " ") === normalizedTitle && t.due_date === due_date,
+      );
+      if (existing) {
+        return { task: summarizeTask(existing), duplicate: true };
+      }
+
       const task = await createTask(
         {
           title,
-          due_date: (input.due_date as string | undefined) || null,
+          due_date,
           due_time: (input.due_time as string | undefined) || null,
           priority: (input.priority as "low" | "med" | "high" | undefined) ?? "med",
           category: (input.category as (typeof CATEGORIES)[number] | undefined) ?? "general",
