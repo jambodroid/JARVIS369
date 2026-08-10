@@ -91,25 +91,63 @@ export default function NetWorthCard({
   accounts: NetWorthAccount[];
   snapshots: NetWorthSnapshot[];
 }) {
+  const [tab, setTab] = useState<"networth" | "debts">("networth");
   const total = computeTotal(accounts);
   const trend = snapshots.map((s) => ({ date: s.snapshot_date, value: s.total }));
 
+  const assets = accounts.filter((a) => a.kind === "asset");
+  const liabilities = accounts.filter((a) => a.kind === "liability");
+  const debtsTotal = liabilities.reduce((sum, a) => sum + Number(a.balance), 0);
+
   return (
     <Card title="Net Worth">
-      <div className="flex flex-col gap-2">
-        {accounts.map((a) => (
-          <AccountRow key={a.id} account={a} />
+      <div className="mb-3 flex justify-end gap-1">
+        {(["networth", "debts"] as const).map((mode) => (
+          <button
+            key={mode}
+            onClick={() => setTab(mode)}
+            className={`rounded-full border px-2.5 py-0.5 font-mono text-xs uppercase tracking-wide transition-colors ${
+              tab === mode ? "border-accent/60 bg-accent/15 text-accent" : "border-border text-ink-3 hover:text-ink-1"
+            }`}
+          >
+            {mode === "networth" ? "Net Worth" : "Debts"}
+          </button>
         ))}
+      </div>
 
-        <div className="mt-1 flex items-center justify-between border-t border-border pt-2 text-sm font-semibold">
-          <span className="text-ink-0">Total</span>
-          <span className="font-mono text-accent">{formatMoney(total, "GBP")}</span>
+      {tab === "networth" ? (
+        <>
+          <div className="flex flex-col gap-2">
+            {assets.length === 0 ? (
+              <p className="text-sm text-ink-3">No assets tracked yet.</p>
+            ) : (
+              assets.map((a) => <AccountRow key={a.id} account={a} />)
+            )}
+
+            <div className="mt-1 flex items-center justify-between border-t border-border pt-2 text-sm font-semibold">
+              <span className="text-ink-0">Total</span>
+              <span className="font-mono text-accent">{formatMoney(total, "GBP")}</span>
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <PeriodTrendChart data={trend} formatValue={(n) => formatMoney(n, "GBP")} />
+          </div>
+        </>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {liabilities.length === 0 ? (
+            <p className="text-sm text-ink-3">No debts tracked yet.</p>
+          ) : (
+            liabilities.map((a) => <AccountRow key={a.id} account={a} />)
+          )}
+
+          <div className="mt-1 flex items-center justify-between border-t border-border pt-2 text-sm font-semibold">
+            <span className="text-ink-0">Total debts</span>
+            <span className="font-mono text-danger">-{formatMoney(debtsTotal, "GBP")}</span>
+          </div>
         </div>
-      </div>
-
-      <div className="mt-4">
-        <PeriodTrendChart data={trend} formatValue={(n) => formatMoney(n, "GBP")} />
-      </div>
+      )}
     </Card>
   );
 }
