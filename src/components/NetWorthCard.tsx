@@ -94,19 +94,27 @@ export default function NetWorthCard({
 
   const assets = accounts.filter((a) => a.kind === "asset");
   const liabilities = accounts.filter((a) => a.kind === "liability");
+  // The credit card is day-to-day spending, not a tracked loan -- it stays
+  // visible on the Net Worth tab (netted against assets) alongside the
+  // long-term debts (Oodle, Lendable, MBNA), which only live on the Debts tab.
+  const creditCard = liabilities.find((a) => a.name.toLowerCase().includes("credit card"));
   const assetsTotal = assets.reduce((sum, a) => sum + Number(a.balance), 0);
+  const netWorthTotal = assetsTotal - Number(creditCard?.balance ?? 0);
   const debtsTotal = liabilities.reduce((sum, a) => sum + Number(a.balance), 0);
 
-  // Historical snapshots store a per-account breakdown -- sum just the
-  // accounts that are assets today, so the trend matches the assets-only
-  // total above instead of the old assets-minus-liabilities figure.
+  // Historical snapshots store a per-account breakdown -- sum the accounts
+  // that are assets today, minus the credit card, so the trend matches the
+  // Net Worth tab's total above instead of the old assets-minus-all-liabilities figure.
   const assetNames = new Set(assets.map((a) => a.name));
-  const trend = snapshots.map((s) => ({
-    date: s.snapshot_date,
-    value: s.breakdown
-      ? Object.entries(s.breakdown).reduce((sum, [name, value]) => (assetNames.has(name) ? sum + value : sum), 0)
-      : s.total,
-  }));
+  const trend = snapshots.map((s) => {
+    if (!s.breakdown) return { date: s.snapshot_date, value: s.total };
+    const assetsSum = Object.entries(s.breakdown).reduce(
+      (sum, [name, value]) => (assetNames.has(name) ? sum + value : sum),
+      0,
+    );
+    const creditCardValue = creditCard ? (s.breakdown[creditCard.name] ?? 0) : 0;
+    return { date: s.snapshot_date, value: assetsSum - creditCardValue };
+  });
 
   return (
     <Card title="Net Worth">
@@ -132,10 +140,11 @@ export default function NetWorthCard({
             ) : (
               assets.map((a) => <AccountRow key={a.id} account={a} />)
             )}
+            {creditCard && <AccountRow key={creditCard.id} account={creditCard} />}
 
             <div className="mt-1 flex items-center justify-between border-t border-border pt-2 text-sm font-semibold">
               <span className="text-ink-0">Total</span>
-              <span className="font-mono text-accent">{formatMoney(assetsTotal, "GBP")}</span>
+              <span className="font-mono text-accent">{formatMoney(netWorthTotal, "GBP")}</span>
             </div>
           </div>
 
