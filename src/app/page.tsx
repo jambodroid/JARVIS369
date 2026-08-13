@@ -49,16 +49,32 @@ export default async function HomePage({
     getGymSessions(),
     getContentItems(),
   ]);
-  const events = googleConnected ? await listWeekEvents() : [];
+  // A stored token row existing (googleConnected) doesn't guarantee it still
+  // works -- Google can revoke/expire a refresh token independently (password
+  // change, 6 months unused, app access revoked). Without this try/catch,
+  // that failure was an uncaught server-component error that took down the
+  // entire dashboard instead of just the calendar section.
+  let events: Awaited<ReturnType<typeof listWeekEvents>> = [];
+  let calendarConnected = googleConnected;
+  let calendarError = google_error;
+  if (googleConnected) {
+    try {
+      events = await listWeekEvents();
+    } catch (err) {
+      console.error("Failed to load calendar events", err);
+      calendarConnected = false;
+      calendarError = "Your Google Calendar connection expired. Please reconnect.";
+    }
+  }
   const tradingAccount = await getAccountByName("AMP Trading");
 
   return (
     <TaskBoard
       openTasks={openTasks}
       completed={completed}
-      googleConnected={googleConnected}
+      googleConnected={calendarConnected}
       events={events}
-      googleError={google_error}
+      googleError={calendarError}
       netWorthAccounts={netWorthAccounts}
       netWorthSnapshots={netWorthSnapshots}
       tradingAccount={tradingAccount}
